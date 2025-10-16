@@ -419,6 +419,7 @@ function _size_aircraft!(ac; itermax=35,
             tank_placement = ""
             xftank_fuse = 0.0
             Wftank_single = 0.0
+            Waftfuel = 0.0   # line added by Nils (bug in repo, causing error when engine_location = "fuselage")
         end
         #Note that fuselage is sized for a maximum payload weight in off-design missions
         parg[igcabVol] = fusew!(fuse, Nland, Wpaymax, Wengtail, 
@@ -536,7 +537,7 @@ function _size_aircraft!(ac; itermax=35,
         rhofuel = !(options.has_wing_fuel) ? 0.0 : parg[igrhofuel]
 
         # Call wing_weights function
-        Wwing,Wsinn,Wsout,
+        Wwing,Wscen,Wsinn,Wsout,  # Wscen added by Nils for plotting
         dyWsinn,dyWsout,
         Wfcen,Wfinn,Wfout,
         dxWfinn,dxWfout,
@@ -574,6 +575,8 @@ function _size_aircraft!(ac; itermax=35,
         wing.outboard.weight = Wsout * (1.0 + fwadd) + rfmax * Wfout
         wing.inboard.dyW = dyWsinn * (1.0 + fwadd) + rfmax * dyWfinn
         wing.outboard.dyW = dyWsout * (1.0 + fwadd) + rfmax * dyWfout
+
+        wing.center.weight = Wscen * (1.0 + fwadd) + rfmax * Wfcen  # line added by Nils for plotting
 
         #TODO: No reason why above lines shouldnt be inside wing_weights
         # -------------------------------
@@ -843,6 +846,16 @@ function _size_aircraft!(ac; itermax=35,
         # BFL calculations/ Noise? / Engine perf 
 
     end
+
+    ## Print statements added by Nils after weight-loop convergence reached
+
+    # println(Wwing, " ", Wscen, " ", Wsinn, " ", Wsout, " ", Wfcen, " ", Wfinn, " ", Wfout)
+    # println(ac.wing.weight, " ", wing.center.weight, " ", wing.inboard.weight, " ", wing.outboard.weight)
+    # println("APU Weight: ", ac.fuselage.APU.W)
+    # println("Shell weight: ", ac.fuselage.shell.weight.W)
+    # println("Horizontal Bending Material Weight: ", ac.fuselage.bendingmaterial_h.weight.W)
+    # println("Vertical Bending Material Weight: ", ac.fuselage.bendingmaterial_v.weight.W)
+    # println()
 
     # normal takeoff and balanced-field takeoff calculations
     # set static thrust for takeoff routine

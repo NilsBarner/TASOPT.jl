@@ -69,6 +69,8 @@ $TYPEDFIELDS
     """Span fraction of inner wing break ("snag")"""
     # ηs::Float64 = 0 
 
+    center::WingSection = WingSection()  # wing center box (added by Nils)
+
     """Fuselage lift carryover factor"""
     fuse_lift_carryover::Float64 = 0.0
     """Tip lift roll-off factor"""
@@ -95,7 +97,6 @@ $TYPEDFIELDS
     weight_frac_spoilers::Float64 = 0.0
     """Wing attachments weight fraction"""
     weight_frac_attachments::Float64 = 0.0
-
 end
 
 """

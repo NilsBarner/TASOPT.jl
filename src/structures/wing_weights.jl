@@ -235,7 +235,7 @@ function wing_weights!(wing, po, gammat, gammas,
     Wwing = n_wings * (Wscen + Wsinn + Wsout) * (1.0 + fwadd)
     wing.dxW = n_wings * (dxWsinn + dxWsout) * (1.0 + fwadd)
 
-    return Wwing, Wsinn, Wsout, dyWsinn, dyWsout, Wfcen, Wfinn, Wfout,
+    return Wwing, Wscen, Wsinn, Wsout, dyWsinn, dyWsout, Wfcen, Wfinn, Wfout,  # Wscen added by Nils for plotting
     dxWfinn, dxWfout, dyWfinn, dyWfout, lsp
 
 end # wing_weights

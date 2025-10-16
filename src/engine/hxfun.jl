@@ -115,6 +115,11 @@ Structure containing the heat exchanger geometric and material properties.
       Δpdes::Float64 = 0.0
       "Maximum allowable HEX length (m)"
       maxL::Float64 = 0.0
+
+      ###
+      "Outer diameter of core (m)"
+      D_o :: Float64 = 0.0  # added by Nils
+      ###
 end
 
 # Overload Base.getproperty for convenience
@@ -377,6 +382,11 @@ function hxsize!(HXgas::HX_gas, HXgeom::HX_tubular)
 
       if is_concentric #If channel is concentric, e.g., engine core
             D_o = sqrt(4 * (A_cs + pi * D_i^2 / 4) / pi) #Core outer diameter
+            
+            ###
+            HXgeom.D_o = D_o  # added by Nils
+            ###
+
             b = pi * D_i #Inner circumference
       else #If channel is rectangular
             b = A_cs / l #Side length

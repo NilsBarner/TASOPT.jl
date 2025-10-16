@@ -16,12 +16,14 @@ import ..TASOPT: __TASOPTindices__, __TASOPTroot__, unpack_ac, unpack_ac_compone
 
 export wing_weights!, calculate_centroid_offset!, calculate_centroid_offset, fusew!,
  update_fuse!, update_fuse_for_pax!, place_cabin_seats, find_cabin_width, find_floor_angles, arrange_seats,
+ add_fus_point_load!,  # line added by Nils
 size_landing_gear!
 
 include(joinpath(__TASOPTroot__,"data_structs/index.inc"))
 include(joinpath(__TASOPTroot__,"utils/constants.jl"))
 include(joinpath(__TASOPTroot__,"structures/loads.jl"))
 export î, ĵ, k̂, WORLD, Weight
+export PointLoad  # line added by Nils
 
 #include fuselage sizing
 include(joinpath(__TASOPTroot__,"data_structs/layout.jl"))

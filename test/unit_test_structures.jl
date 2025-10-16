@@ -309,7 +309,7 @@ Abfuels = TASOPT.structures.calc_sparbox_internal_area(wing.inboard.cross_sectio
   fort_lstrutp = 0.0
 
 
-Wwing,Wsinn,Wsout,
+Wwing,Wscen,Wsinn,Wsout,  # Wscen added by Nils
         dyWsinn,dyWsout,
         Wfcen,Wfinn,Wfout,
         dxWfinn,dxWfout,

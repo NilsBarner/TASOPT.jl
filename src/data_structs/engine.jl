@@ -42,6 +42,8 @@ struct TurbofanModel{F1, F2} <: AbstractModel
     engineweight!::F2
     """Flag if engine core ingests upstream BL. `false` for clean flow, `true` if ingests KE defect """
     has_BLI_cores::Bool
+
+    custom_weight_delta::Float64  # line added by Nils
 end
 
 # Override Engine getproperty to return default values

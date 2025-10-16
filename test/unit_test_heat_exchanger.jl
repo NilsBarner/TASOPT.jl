@@ -1,3 +1,7 @@
+using Test
+using TASOPT
+include(TASOPT.__TASOPTindices__)
+
 #----------------------------------------------------------------
 #     Heat exchanger sizing tests
 #

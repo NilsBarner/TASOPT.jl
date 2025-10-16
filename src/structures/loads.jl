@@ -172,7 +172,7 @@ $TYPEDFIELDS
     """Reference frame"""
     frame::Frame = WORLD
     """Centroid (position) of applied force {x, y, z} [m]"""
-    r::AbstractVector{Float64} = [0,0,0]
+    r::AbstractVector{Any} = [0,0,0]  # Nils changed data type from Float64 to Any to allow for Dict, String, and Number input
 end
 
 """

@@ -1,3 +1,5 @@
+using Revise
+
 # This is an example file to load an aircraft model/ input file and 
 # size an aircraft using TASOPT. 
 
@@ -32,3 +34,10 @@ summary(example_ac)
 using Plots
 p = TASOPT.stickfig(example_ac)
 savefig(p, "Example.png")
+
+###
+
+# println(dump(example_ac.engine.heat_exchangers[1].HXgeom))
+# example_ac.engine.heat_exchangers[1].HXgeom.D_o
+# example_ac.engine.heat_exchangers[1].HXgeom.D_i
+# example_ac.engine.heat_exchangers[1].HXgeom.l

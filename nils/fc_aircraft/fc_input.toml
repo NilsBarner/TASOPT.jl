@@ -1,0 +1,467 @@
+# example/fc_input.toml
+# ---------------------
+# Fuel-cell + ducted-fan aircraft input derived from example/cryo_input.toml
+# and test/unit_test_ductedfan.jl.  This file keeps the same overall
+# aircraft geometry/mission/etc. as the cryo example but replaces the
+# propulsion/turbomachinery sections with a fuel-cell + electrically-driven
+# ducted fan configuration.
+#
+# IMPORTANT:
+#   - The unit test constructs the engine programmatically in Julia:
+#       enginemodel = TASOPT.engine.FuelCellDuctedFan(...)
+#       engine = TASOPT.engine.Engine(enginemodel, engdata, Vector{TASOPT.engine.HeatExchanger}())
+#       ac.engine = engine
+#     If your loader supports creating Engine/EngineData from TOML directly, map
+#     the TOML keys below to the FuelCellDuctedFanData struct fields. If not,
+#     load TOML, then in Julia create the FuelCellDuctedFanData from the TOML and
+#     construct the Engine as the unit test does (see the snippet at the end).
+#
+#   - The TOML contains the same radiator/pare defaults the unit test sets:
+#       ieRadiatorepsilon = 0.7
+#       ieRadiatorMp      = 0.12
+#       ieDi              = 0.4
+#     If necessary, map these to TASOPT's internal pare indices after loading.
+#
+# Save this file as example/fc_input.toml and run example_cryo.jl (modify the path
+# inside that script to point at this TOML if needed).
+#
+
+["Aircraft Description"]
+name = "TASOPT Model : Fuel Cell + Ducted Fan (hydrogen)"
+description = """
+This input models an aircraft powered by hydrogen fuel cells driving ducted fans.
+Key fuel-cell / ducted-fan parameters are chosen to match the values used in
+test/unit_test_ductedfan.jl (so the engine sizing & off-design checks should
+produce comparable numbers when the engine model is used exactly as in the tests).
+"""
+
+# --- All remaining sections are copied/adapted from cryo_input.toml ---
+# Units, mission, fuselage, wing, stabilizers, structures, etc remain the same.
+# Only the propulsion section is adapted heavily to a fuel-cell architecture.
+
+[Options]
+engine_location = "wing"
+prop_sys_arch = "fuel_cell_with_ducted_fan"  # "FE" = Fuel Electric (convention here). Original had "TF" for turbofan.
+
+[Fuel]
+fuel_type = "LH2"
+fuel_in_wing = false
+fuel_in_wingcen = false
+fuel_usability_factor = 0.90
+fuel_enthalpy_vaporization = 0.0
+
+[Fuel.Storage]
+tank_placement = "rear"
+tank_aspect_ratio = 2.0
+fuselage_clearance = "0.3 ft"
+additional_mass_fraction = 0.25
+weld_efficiency = 0.9
+ullage_fraction = 0.05
+heat_leak_factor = 1.3
+pressure_rise_factor = 2.0
+pressure_venting = "2 atm"
+pressure_initial = "1.2 atm"
+hold_departure = "0 h"
+hold_arrival = "0 h"
+inner_vessel_material = "Al-2219-T87"
+inner_vessel_support_angle = "80 deg"
+sizes_insulation = true
+insulation_material = ["polyurethane32", "polyurethane32", "polyurethane32"]
+insulation_segment_base_thickness = [0.05, 0.05, 0.05]
+cruise_boiloff_rate = 0.4
+insulation_thicknesses_design_indices = [1,2,3]
+outer_vessel_material = "Al-2219-T87"
+outer_vessel_support_angles = ["45 deg", "135 deg"]
+
+[Mission]
+N_missions = 1
+payload = ["180 pax"]
+exit_limit = 189
+max_payload = "189 pax"
+range = "3000.0 nmi"
+weight_per_pax = "215.0 lbf"
+fuel_reserves = 0.20
+Nlift = 3.0
+Vne = "280 kts"
+
+[Mission.Takeoff]
+takeoff_alt = "0.0 ft"
+takeoff_T = 288.2
+max_balanced_field_length = "8000.0 ft"
+Nland = 6.0
+CL_max_perp = 2.25
+CD_dead_engine = 0.50
+CD_landing_gear = 0.015
+CD_spoilers = 0.10
+rolling_resistance_coeff = 0.025
+braking_resistance_coeff = 0.35
+takeoff_obstacle_height = "35 ft"
+
+[Mission.Climb]
+minimum_top-of-climb_gradient = 0.015
+
+[Mission.Cruise]
+cruise_alt  = "35000.0 ft"
+cruise_mach = 0.80
+cruise_CL   = 0.57
+
+[Mission.Descent]
+descent_angle_top-of-descent = "-3.0 deg"
+descent_angle_bottom-of-descent = "-3.0 deg"
+
+[Fuselage]
+cabin_pressure_altitude = "8000.0 ft"
+
+[Fuselage.Geometry]
+radius = "100 in"
+dRadius = "15 in"
+y_offset = 0.0
+floor_depth = "5.0 in"
+Nwebs = 1
+a_nose = 1.65
+b_tail = 2.0
+tailcone_taper = 0.3
+tapers_to = "point"
+HT_load_fuse_bend_relief = 0.4
+VT_load_fuse_bend_relief = 0.7
+calculate_cabin_length = true
+double_decker = false
+floor_distance = "0 in"
+min_top_cabin_height = "2 m"
+seat_pitch = "30 in"
+seat_width = "19 in"
+seat_height = "45 in"
+aisle_halfwidth = "10 in"
+front_seat_offset = "10 ft"
+rear_seat_offset = "5 ft"
+unit_load_device = "LD3"
+x_nose_tip = "0 ft"
+x_pressure_shell_fwd = "17 ft"
+x_start_cylinder = "20 ft"
+x_end_cylinder = "97 ft"
+x_pressure_shell_aft = "102 ft"
+x_cone_end = "117 ft"
+x_end = "124 ft"
+x_HPE_sys = "62ft"
+x_APU = "120 ft"
+x_fixed_weight = "7ft"
+x_engines = "52 ft"
+y_critical_engines = "16 ft"
+
+[Fuselage.Weights]
+stringer = 0.35
+frame = 0.25
+additional = 0.20
+fixed_weight = "3000 lbf"
+window_per_length = 435.0
+window_insul_per_area = 22.0
+floor_weight_per_area = 60.0
+HPE_sys_weight_fraction = 0.010
+APU_weight_fraction = 0.035
+seat_weight_fraction = 0.10
+add_payload_weight_fraction = 0.35
+
+[Fuselage.Aero]
+fuse_moment_volume_deriv = "2390.0 ft3"
+CL_zero_fuse_moment = 0.185
+wingroot_fuse_overspeed = 0.018
+wingbreak_fuse_overspeed = 0.014
+wingtip_fuse_overspeed = 0.0045
+excrescence_drag_factor = 1.03
+BLI_frac = 0.0
+
+[Wing]
+has_strut = false
+sweep = 26.0
+AR = 10.1
+maxSpan = "117.5 ft"
+inner_panel_taper_ratio = 0.7
+outer_panel_taper_ratio = 0.25
+panel_break_location = 0.285
+center_box_halfspan = "71.0 in"
+box_width_to_chord = 0.50
+root_thickness_to_chord = 0.1268
+spanbreak_thickness_to_chord = 0.1266
+hweb_to_hbox = 0.75
+spar_box_x_c = 0.40
+x_wing_box = "57 ft"
+z_wing = "-5.5 ft"
+z_strut = "154 in"
+strut_toc = 0.15
+strut_local_velocity_ratio = 1.0
+airfoil = "C.air"
+
+[Wing.Aero]
+fuselage_lift_carryover_loss_factor = -0.3
+wing_tip_lift_rolloff_factor = -0.05
+lowspeed_cdf = 0.0085
+lowspeed_cdp = 0.0035
+Re_ref = 20e6
+strut_lowspeed_cdf = 0.0085
+strut_lowspeed_cdp = 0.0035
+strut_Re_ref = 1e6
+Reynolds_scaling = -0.15
+excrescence_drag_factor = 1.02
+BLI_frac = 0.0
+
+[Wing.Aero.Takeoff]
+cls_clo = 1.1
+clt_clo = 0.6
+cm_o = -0.20
+cm_s = -0.20
+cm_t = -0.02
+
+[Wing.Aero.Climb]
+cls_clo = 1.238
+clt_clo = 0.90
+cm_o = -0.06
+cm_s = -0.06
+cm_t = -0.06
+
+[Wing.Aero.Landing]
+cls_clo = 1.1
+clt_clo = 0.5
+cm_o = -0.35
+cm_s = -0.35
+cm_t = -0.02
+
+[Wing.Weightfracs]
+flap = 0.2
+slat = 0.1
+aileron = 0.04
+leading_trailing_edge = 0.1
+ribs = 0.15
+spoilers = 0.020
+attachments = 0.03
+
+[Stabilizers]
+lowspeed_cdf = 0.0060
+lowspeed_cdp = 0.0035
+Re_ref = 10e6
+excrescence_drag_factor = 1.02
+
+[Stabilizers.Htail]
+multi_section = false
+AR_Htail = 6.0
+taper = 0.25
+sweep = 26.0
+center_box_halfspan = "2.5 ft"
+x_Htail = "114.5 ft"
+z_Htail = "0 ft"
+number_Htails = 2.0
+max_tail_download = -0.5
+opt_sizing = "fixed_Vh"
+Vh = 1.45
+CLh_at_max_forward_CG = -0.7
+opt_move_wing = "min_static_margin"
+SM_min = 0.05
+CLh_spec = -0.02
+downwash_factor = 0.60
+nacelle_lift_curve_slope = 3.8
+CD_Htail_from_center = 0.1
+CLh_max = 2.0
+added_weight_fraction = 0.30
+box_width_to_chord = 0.50
+box_height_chord = 0.14
+web_height_hbox = 0.75
+
+[Stabilizers.Vtail]
+AR_Vtail = 2.0
+taper = 0.30
+sweep = 25.0
+center_box_halfspan = 0.0
+x_Vtail = "110 ft"
+number_Vtails = 1.0
+opt_sizing = "fixed_Vv"
+Vv = 0.1
+CLv_at_engine_out = 0.5
+CLv_max = 2.6
+added_weight_fraction = 0.40
+box_width_to_chord = 0.50
+box_height_chord = 0.14
+web_height_hbox = 0.75
+
+[LandingGear]
+landing_gear_model = "mass_fractions"
+x_nose_landing_gear = "14ft"
+x_main_landing_gear_offset = "1 ft"
+LG_nose_weight_fraction = 0.011
+LG_main_weight_fraction = 0.044
+y_main_landing_gear_halfspan_fraction = 0.2
+tailstrike_angle = "10 deg"
+wing_dihedral_angle = "6 deg"
+engine_ground_clearance = "23 in"
+LG_nose_number_struts = 1
+LG_nose_wheels_per_strut = 2
+LG_main_number_struts = 2
+LG_main_wheels_per_strut = 2
+
+[Structures]
+stress_factor = 1.0
+caps_material = "TASOPT-Al"
+caps_max_avg_stress = 1.1
+caps_safety_factor = 1.5
+webs_material = "TASOPT-Al"
+webs_max_avg_stress = 1.1
+webs_safety_factor = 1.5
+skin_material = "TASOPT-Al"
+skin_max_avg_stress = 1.1
+skin_safety_factor = 3.0
+bending_material = "TASOPT-Al"
+bending_max_avg_stress = 1.1
+bending_safety_factor = 1.5
+cone_material = "TASOPT-Al"
+cone_max_avg_stress = 1.1
+cone_safety_factor = 2.0
+floor_material = "TASOPT-Al"
+floor_max_avg_stress = 1.1
+floor_safety_factor = 1.5
+sigma_caps = "30e3 lbf/in2"
+sigma_struts = "30e3 lbf/in2"
+tau_webs = "20e3 lbf/in2"
+fuse_shell_modulus_ratio = 1.0
+E_wing_spar_cap = "10e6 lbf/in2"
+E_struts = "10e6 lbf/in2"
+wing_tail_cap_density = 2700.0
+wing_tail_web_density = 2700.0
+strut_density = 2700.0
+
+# ----------------------------
+# PROPULSION: Fuel Cell + Ducted Fan
+# ----------------------------
+[Propulsion]
+number_of_engines = 2
+# keep T_max_metal / turbomachinery defaults but they are not used by the fuel cell model
+T_max_metal = 1280.0
+
+# High-level tag to tell your loader this should use a FuelCell+DuctedFan model.
+# The unit test used "fuel_cell_with_ducted_fan" as the model name when constructing
+# TASOPT.engine.FuelCellDuctedFan(...). Map this to the code that constructs the engine.
+engine_model_tag = "fuel_cell_with_ducted_fan"
+
+# Fan (electrical) power limit (unit test set pare[iePfanmax] .= 10e6)
+pfan_max_W = 1.0e7
+
+# Engine weight model tag (unit test used "nasa")
+engine_weight_model = "nasa"
+
+[Propulsion.FuelCellDuctedFan]
+# Fields mirror those set on FuelCellDuctedFanData in test/unit_test_ductedfan.jl
+# NOTE: the actual struct in Julia may have slightly different names; map them accordingly.
+
+# Fuel cell type used in the test:
+type = "HT-PEMFC"
+
+# Provide current density as an array covering (design, off-design) flight points.
+# Unit test sets current_density[iprotate,:] .= 1e4  (they used 2 points when constructing the Data object)
+# Here we give two entries: [cruise_value, rotate_value]. The loader should map these
+# to the appropriate flight-condition indices (ipcruise1, iprotate, ...).
+current_density_Aperm2 = [1.0e4, 1.0e4]
+
+# Design / nominal cell temperature & pressure (K, Pa) used in unit test
+FC_temperature_K = 453.15
+FC_pressure_Pa = 3.0e5
+
+# Water concentrations (anode/cathode) used in test
+water_concentration_anode = 0.1
+water_concentration_cathode = 0.1
+
+# Reactant stoichiometric/excess factors used in test
+lambda_H2 = 3.0
+lambda_O2 = 3.0
+
+# Membrane / electrode thickness (meters)
+thickness_membrane_m = 100e-6
+thickness_anode_m = 250e-6
+thickness_cathode_m = 250e-6
+
+# Design stack voltage (V) used in test
+design_voltage_V = 200.0
+
+# Note: the test indicates that area_cell was expected to be ~5.0 (output),
+# and number_cells ~265.52 (output). You can optionally provide a target area_cell:
+area_cell_target_m2 = 5.0  # optional target (the model will compute actual)
+
+# If your engine loader expects arrays for FC_temperature or FC_pressure with a
+# dimension [n_flight_conditions, n_engines] you should map FC_temperature_K and
+# FC_pressure_Pa into those arrays after reading the TOML. The unit test sets:
+#   pare[ieRadiatorCoolantT,:,:] = engine.data.FC_temperature[:,:]
+#   pare[ieRadiatorCoolantP,:,:] = engine.data.FC_pressure[:,:]
+#
+# Radiator coupling defaults (unit test sets these pare entries to these values)
+# They are included here so your loader can set the same pare values if needed.
+radiator_defaults = { epsilon = 0.7, Mp = 0.12, Di = 0.4 }
+
+[Propulsion.Electrical]
+# Electrical drivetrain and parasitic defaults
+inverter_efficiency = 0.98
+motor_efficiency = 0.95
+propulsor_power_fraction = 0.98  # fraction of FC power available to fan after auxiliaries
+
+[Propulsion.HeatExchangers]
+# Keep sensible defaults; FCs will produce heat that needs radiator sizing.
+has_recirculation = true
+recirculation_temperature = "200 K"
+maximum_heat_exchanger_length = "0.25 m"
+core_inner_diameter = "0.2 m"
+added_mass_frac = 1.0
+precooler_order = 1
+precooler_effectiveness = 0
+intercooler_order = 2
+intercooler_effectiveness = 0
+regenerative_order = 4
+regenerative_effectiveness = 0.8
+turbine_cooler_order = 3
+turbine_cooler_effectiveness = 0
+
+[Propulsion.Weight]
+engine_access_weight_fraction = 0.10
+pylon_weight_fraction = 0.10
+weight_model = "fitzgerald_basic"
+
+[Notes]
+# Post-load steps to reproduce the unit-test setup in Julia (if loader doesn't auto-create):
+# ----------------------------------------------------------------
+# using TASOPT
+# include(TASOPT.__TASOPTindices__)    # ensures pare/para indices are defined
+# ac = read_aircraft_model("example/fc_input.toml")
+#
+# # Create FuelCellDuctedFanData from TOML values (pseudocode — map names to actual struct fields)
+# fcdata = TASOPT.engine.FuelCellDuctedFanData(2)  # 2 flight conditions example
+# fcdata.type .= TOML_values_here.type
+# fcdata.current_density .= TOML_values_here.current_density_Aperm2   # map to correct index
+# fcdata.FC_temperature .= [TOML_values_here.FC_temperature_K ...]   # shape as required
+# fcdata.FC_pressure .= [TOML_values_here.FC_pressure_Pa ...]
+# fcdata.water_concentration_anode .= TOML_values_here.water_concentration_anode
+# fcdata.water_concentration_cathode .= TOML_values_here.water_concentration_cathode
+# fcdata.λ_H2 .= TOML_values_here.lambda_H2
+# fcdata.λ_O2 .= TOML_values_here.lambda_O2
+# fcdata.thickness_membrane = TOML_values_here.thickness_membrane_m
+# fcdata.thickness_anode = TOML_values_here.thickness_anode_m
+# fcdata.thickness_cathode = TOML_values_here.thickness_cathode_m
+# fcdata.design_voltage = TOML_values_here.design_voltage_V
+#
+# # Create engine model & attach to aircraft
+# enginecalc! = TASOPT.engine.calculate_fuel_cell_with_ducted_fan!
+# engineweight! = TASOPT.engine.fuel_cell_with_ducted_fan_weight!
+# enginemodel = TASOPT.engine.FuelCellDuctedFan("fuel_cell_with_ducted_fan", enginecalc!, "nasa", engineweight!, false)
+# engine = TASOPT.engine.Engine(enginemodel, fcdata, Vector{TASOPT.engine.HeatExchanger}())
+# ac.engine = engine
+#
+# # Set pare radiator values to FC outputs as in unit test:
+# ac.pare[ieRadiatorCoolantT,:,:] = engine.data.FC_temperature[:,:]
+# ac.pare[ieRadiatorCoolantP,:,:] = engine.data.FC_pressure[:,:]
+# ac.pare[ieRadiatorHeat,:,:]      = engine.data.FC_heat[:,:]
+#
+# # Optionally set pare entries that unit test sets before calling engine.enginecalc!(...)
+# ac.pare[iePfanmax,:,:] .= 1.0e7
+# ac.pare[ieRadiatorepsilon,:,:] .= 0.7
+# ac.pare[ieRadiatorMp,:,:] .= 0.12
+# ac.pare[ieDi,:,:] .= 0.4
+# ----------------------------------------------------------------
+#
+# If you want I can also generate the small Julia helper that reads the TOML and
+# runs the few lines above (constructs FuelCellDuctedFanData from the TOML and
+# attaches it to ac).  But the TOML above includes the exact numbers used by
+# the unit test so you should get matching results when you construct the
+# engine object exactly as in the unit test.

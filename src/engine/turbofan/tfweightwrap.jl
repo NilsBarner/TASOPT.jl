@@ -19,7 +19,8 @@ function tfweightwrap!(ac)
     
     Weng, Wnace, Webare, W_HXs, Snace1 = tfweight(ac)
         
-    parg[igWeng] = Weng
+    custom_weight_delta = ac.engine.model.custom_weight_delta  # line added by Nils
+    parg[igWeng] = Weng + custom_weight_delta  # second term added by Nils
     parg[igWebare] = Webare
     parg[igWnace] = Wnace
     parg[igWHXs] = W_HXs

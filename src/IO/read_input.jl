@@ -396,7 +396,7 @@ readweight(x) = read_input(x, weight, dweight)
     fuselage.floor_W_per_area = readweight("floor_weight_per_area")
 
     fuselage.HPE_sys.W = readweight("HPE_sys_weight_fraction")
-
+    
     fuselage.APU.W = readweight("APU_weight_fraction")*exitlimit*Wpax
     fuselage.seat.W = readweight("seat_weight_fraction")*exitlimit*Wpax
     fuselage.added_payload.W = readweight("add_payload_weight_fraction")*exitlimit*Wpax
@@ -1041,7 +1041,9 @@ if compare_strings(propsys,"tf")
     engineweightname = TF_wmodel
     engineweight! = tfweightwrap!
 
-    enginemodel = TASOPT.engine.TurbofanModel(modelname, enginecalc!, engineweightname, engineweight!, eng_has_BLI_cores)
+    # Add custom engine weight increment
+    custom_weight_delta = read_input("custom_weight_delta", weight, dweight)  # line added by Nils
+    enginemodel = TASOPT.engine.TurbofanModel(modelname, enginecalc!, engineweightname, engineweight!, eng_has_BLI_cores, custom_weight_delta)  # last argument added by Nils
     engdata = TASOPT.engine.EmptyData()
 elseif compare_strings(propsys,"fuel_cell_with_ducted_fan")
     modelname = lowercase(propsys)

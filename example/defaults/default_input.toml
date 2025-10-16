@@ -183,6 +183,8 @@
     seat_weight_fraction = 0.10 # Wseats/W_payload
     add_payload_weight_fraction = 0.35 # Additional payload proportional Wfrac
 
+    custom_weight_delta = 0.0  # added by Nils
+
 [Fuselage.Aero]
     fuse_moment_volume_deriv = "2390.0 ft3" # d(Mfuse/q)/dCL
     CL_zero_fuse_moment      = 0.185         # CL when Mfuse = 0
@@ -514,6 +516,8 @@
     weight_model = "fitzgerald_basic"    #Options are "MD": Mark Drela's original model
                                     #   "fitzgerald_basic": NF's new model with basic tech
                                     #     "fitzgerald_adv": NF's new model with advanced tech
+
+    custom_weight_delta = 0.0  # added by Nils
                                     
 #Default model does not have heat exchangers in the propulsion system
 #See cryo_input.toml for template with representative values
