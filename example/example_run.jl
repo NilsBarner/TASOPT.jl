@@ -1,8 +1,11 @@
+using Revise
+
 # This is an example file to load an aircraft model/ input file and 
 # size an aircraft using TASOPT. 
 
 # 1) Load TASOPT
 using TASOPT
+include(TASOPT.__TASOPTindices__)
 # you can optionally define
 # const tas = TASOPT 
 # to use as a shorthand
@@ -14,8 +17,8 @@ example_ac = load_default_model() # simply a synonym to read_aircraft_model()
 # example_ac = read_aircraft_model("../src/IO/input.toml") # MODIFY <path> appropriately
 
 # 3) Size aircraft
-time_wsize = @elapsed size_aircraft!(example_ac)
-println("Time to size aircraft = $time_wsize s")
+time_size_aircraft = @elapsed size_aircraft!(example_ac)
+println("Time to size aircraft = $time_size_aircraft s")
 
 # 4) Visualize outputs
 # Output resulting geometry of aircraft
@@ -29,6 +32,8 @@ summary(example_ac)
 # TASOPT.geometry(example_ac)
 
 # 5) Plot figures
-using PyPlot
-TASOPT.stickfig(example_ac)
-plt.savefig("Example.png")
+using Plots
+# p = TASOPT.stickfig(example_ac)  # line commented by Nils
+p = TASOPT.stickfig(example_ac, show_grid = false, annotate_text = false, show_seats = false, fill_tank = false, annotate_sketch = false, annotate_length = false, annotate_group = false, airframe_colour = :black, engine_colour = :black)  # line added by Nils
+savefig(p, "Example.png")
+display(p)

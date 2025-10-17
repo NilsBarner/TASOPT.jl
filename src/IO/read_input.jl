@@ -1,13 +1,14 @@
 using TOML
+export read_aircraft_model, load_default_model
 
 """
     read_input(k::String, dict::AbstractDict=data, 
     default_dict::AbstractDict = default)
 
 Reads the input from a given dictonary (typically parsed from a TOML file).
-If requested input does not exist in dictonary, looks for value in default input
-and stores default value into the given dictonary (primarily for later output/
-saving as an `aircraft` model file)
+If requested input does not exist in dictionary, looks for value in default input
+and stores default value into the given dictionary (primarily for later output/
+saving as an aircraft model file)
 """
 function read_input(k::String, dict::AbstractDict=data, 
     default_dict::AbstractDict = default)
@@ -21,14 +22,28 @@ function read_input(k::String, dict::AbstractDict=data,
             default_dict[k]
         else
             error("Requested key/parameter is not supported. Check the default 
-            input file to see all available input options.")
+            input file to see all available input options. Key: "*k)
         end
     end
 end
 
-# Convinence functions to convert to SI units
+function get_template_input_file(designrange)
+    if designrange <= 2600 * nmi_to_m
+        templatefile = joinpath(TASOPT.__TASOPTroot__, "../example/defaults/default_regional.toml")
+    elseif designrange <= 3115 * nmi_to_m
+        templatefile = joinpath(TASOPT.__TASOPTroot__, "../example/defaults/default_input.toml")
+    elseif designrange <= 8500 * nmi_to_m
+        templatefile = joinpath(TASOPT.__TASOPTroot__, "../example/defaults/default_wide.toml")
+    else
+        println("\n")
+        @warn """Requested aircraft design range exceeds expected capability. Selecting Wide Body Aircraft Template, but be warned. """
+        templatefile = joinpath(TASOPT.__TASOPTroot__, "../example/defaults/default_wide.toml")
+    end
+    return templatefile
+end
+# Convenience functions to convert to SI units
 Speed(x)    = convertSpeed(parse_unit(x)...)
-Len(x)      = convertDist(parse_unit(x)...)
+Distance(x)      = convertDist(parse_unit(x)...)
 Force(x)    = convertForce(parse_unit(x)...)
 Pressure(x) = convertPressure(parse_unit(x)...)
 Stress = Pressure
@@ -36,19 +51,25 @@ Density(x)  = convertDensity(parse_unit(x)...)
 Area(x)     = convertArea(parse_unit(x)...)
 Vol(x)      = convertVolume(parse_unit(x)...)
 Angle(x)    = convertAngle(parse_unit(x)...)
+Time(x)     = convertTime(parse_unit(x)...)
 Temp(x)     = convertTemp(parse_unit(x)...)
+
 
 """
     read_aircraft_model(datafile; 
-    defaultfile = joinpath(TASOPT.__TASOPTroot__, "IO/default_input.toml"))
+    defaultfile = joinpath(TASOPT.__TASOPTroot__, "../example/defaults/default_input.toml"))
 
 Reads a specified TOML file that describes a TASOPT `aircraft` model 
 with a fall back to the default `aircraft` definition 
-provided in \"src/IO/default_input.toml\""
+provided in \"/example/defaults/default_input.toml\""
+
+!!! note "Deviating from default"
+    Extending `read_input.jl` and `save_model.jl` is recommended for models deviating appreciably 
+    from the default functionality. Thorough knowledge of the model is required.
 
 # Examples
 ```julia-repl
-julia> read_aircraft_model("src/IO/input.toml")
+julia> read_aircraft_model("examples/defaults/default_input.toml")
 
 
 ┌ Info: engine_location not found in user specified input file. 
@@ -70,135 +91,174 @@ Cruise Mach = 0.8
 ```
 """
 function read_aircraft_model(
-    datafile=joinpath(TASOPT.__TASOPTroot__, "IO/default_input.toml"); 
-    defaultfile = joinpath(TASOPT.__TASOPTroot__, "IO/default_input.toml"))
+    datafile=joinpath(TASOPT.__TASOPTroot__, "../example/defaults/default_input.toml"); 
+    templatefile = "")
 
 data = TOML.parsefile(datafile)
-default = TOML.parsefile(defaultfile)
+
+# Get template input file, with appropriate user notices when needed
+# handle default templatefile value
+if templatefile == ""
+    @info "No template input file provided. Proceeding with template file as determined by design mission range."
+    templatefile = nothing
+# check if provided template input file is extant
+elseif !isfile(templatefile)
+    #if not, warn that we're ignoring it
+    @warn "Template input file provided does not exist: $templatefile \n Proceeding with template file as determined by design mission range."
+    templatefile = nothing
+end
+#if no valid templatefile provided
+if isnothing(templatefile)
+    #determine appropriate template input file based on mission range
+    designrange = Distance.(data["Mission"]["range"])[1] #in meters
+    templatefile = get_template_input_file(designrange)
+    @info "Template input file selected: $templatefile"
+end
+
+default = TOML.parsefile(templatefile)
 ac_descrip = get(data, "Aircraft Description", Dict{})
 name = get(ac_descrip, "name", "Untitled Model")
 description = get(ac_descrip, "description", "---")
+is_sized = get(ac_descrip, "is_sized",[false])
+
+
 #Get number of missions to create data arrays
 mis = read_input("Mission", data, default)
 dmis = default["Mission"]
 readmis(x::String) = read_input(x, mis, dmis)
 nmisx = readmis("N_missions")
-pari = zeros(Int64, iitotal)
 parg = zeros(Float64, igtotal)
 parm = zeros(Float64, (imtotal, nmisx))
 para = zeros(Float64, (iatotal, iptotal, nmisx))
 pare = zeros(Float64, (ietotal, iptotal, nmisx))
 
+wing = Wing()
+htail = Tail()
+vtail = Tail()
+landing_gear = LandingGear()
+
+# Setup mission variables
+ranges = readmis("range")
+parm[imRange, :] .= Distance.(ranges)
+Wpax =  Force(readmis("weight_per_pax"))
+
+#Weight() can take in "pax" as a unit; the weight of a passenger is user-defined
+function Weight(x)
+    if x isa AbstractVector
+        return [Weight(w) for w in x]  # Recursively call Weight on each element
+    elseif x isa AbstractString
+        value, unit = parse_unit(x)
+        if unit == "pax" 
+            return value * Wpax
+        else 
+            return convertForce(value, unit)
+        end
+    elseif x isa Float64
+        return x
+    else
+        throw(ArgumentError("Unsupported input type: $(typeof(x))"))
+    end
+end
+
+maxpay = Weight(readmis("max_payload")) #This represents the maximum aircraft payload
+                                #This may exceed the seatable capacity to account for belly cargo
+
+payload = Weight(readmis("payload"))
+exitlimit = readmis("exit_limit") #Maximum number of pax that could fit in cabin in an all-economy layout
+
+parm[imWperpax, :] .= Wpax
+parm[imWpay, :] .= payload
+parg[igWpaymax] = maxpay 
+parg[igfreserve] = readmis("fuel_reserves")
+parg[igVne] = Speed(readmis("Vne"))
+parg[igNlift] = readmis("Nlift")
+
 # Setup option variables
 options = read_input("Options", data, default)
 doptions = default["Options"]
 
-pari[iiopt] = read_input("optimize", options, doptions)
 
-propsys = read_input("prop_sys_arch", options, doptions)
-if lowercase(propsys) == "tf"
-    pari[iiengtype] = 1
-elseif lowercase(propsys) == "te"
-    pari[iiengtype] = 0
-else
-    error("Propulsion system \"$propsys\" specified. Choose between
-    1: TF - turbo-fan
-    2: TE - turbo-electric" )
-end
-
+# -----------------------------
+# Engine model setup
+# ------------------------------
 engloc = read_input("engine_location", options, doptions)
 
-if typeof(engloc) == Int
-    pari[iiengloc] = engloc
-elseif typeof(engloc) <: AbstractString
-    engloc = lowercase(engloc)
-    if engloc == "wing"
-        pari[iiengloc] = 1
-    elseif engloc == "fuselage" || engloc == "fuse"
-        pari[iiengloc] = 2
-    else
-        error("Engine location provided is \"$engloc\". Engine position can only be:
-        1: Engines on \"wing\"
-        2: Engines on \"fuselage\"")
-    end
-else
-    error("Check engine position input... something isn't right")
+#throw error if engloc isn't a string indicating a supported location
+if !(typeof(engloc) <: AbstractString && engloc in ["wing", "fuselage"])
+   error("Engine location provided is \"$engloc\". Engine position can only be:
+        > \"wing\" - engines under wing
+        > \"fuselage\" - engines on aft fuselage")
 end
-
 
 # Fuel related options
 fuel = read_input("Fuel", data, default)
 dfuel = default["Fuel"]
 readfuel(x::String) = read_input(x, fuel, dfuel)
 fueltype = readfuel("fuel_type")
-#TODO this needs to be updated once I include Gas.jl into TASOPT
-if uppercase(fueltype) == "LH2"
-    pari[iifuel] = 40
-elseif uppercase(fueltype) == "CH4"
-        pari[iifuel] = 11
-elseif uppercase(fueltype) == "JET-A"
-    pari[iifuel] = 24
-else
-    error("Check fuel type")
+#TODO this needs to be updated once Prash includes Gas.jl into TASOPT
+
+#check input, perform actions based on fuel type
+if compare_strings(fueltype, "JET-A")
+    pare[ieTft, :, :] .= readfuel("fuel_temp") #Temperature of fuel in fuel tank
+    pare[ieTfuel, :, :] .= readfuel("fuel_temp") #Initialize fuel temperature as temperature in tank
+    parg[igrhofuel] = readfuel("fuel_density")
+    ifuel = 24
+elseif compare_strings(fueltype, "LH2") 
+    ifuel = 40
+elseif compare_strings(fueltype, "CH4")
+    ifuel = 11
+#throw error if fueltype isn't a supported value
+else 
+    error("'$fueltype' is not a supported fuel type (e.g., \"JET-A\", \"LH2\", \"CH4\")")
 end
-pari[iifwing]  = readfuel("fuel_in_wing")
-pari[iifwcen]  = readfuel("fuel_in_wingcen")
+
+has_centerbox_fuel  = readfuel("fuel_in_wingcen")
 parg[igrWfmax] = readfuel("fuel_usability_factor")
-pare[ieTft, :, :] .= readfuel("fuel_temp") #Temperature of fuel in fuel tank
-pare[ieTfuel, :, :] .= readfuel("fuel_temp") #Initialize fuel temperature as temperature in tank
-parg[igrhofuel] = readfuel("fuel_density")
-
-# Setup mission variables
-ranges = readmis("range")
-parm[imRange, :] .= Len.(ranges)
-
-Wpax =  Force(readmis("weight_per_pax"))
-parm[imWpay, :] .= readmis("pax") * Wpax
-parg[igWpaymax] = readmis("max_pax") * Wpax
-parg[igfreserve] = readmis("fuel_reserves")
-parg[igVne] = Speed(readmis("Vne"))
-parg[igNlift] = readmis("Nlift")
+pare[iehvap, :, :] .= readfuel("fuel_enthalpy_vaporization") #Heat of vaporization of the fuel
+pare[iehvapcombustor, :, :] .= readfuel("fuel_enthalpy_vaporization") #Heat of vaporization of fuel, if vaporized in combustor
 
 ##Takeoff
 takeoff = readmis("Takeoff")
 dtakeoff = dmis["Takeoff"]
 readtakeoff(x) = read_input(x, takeoff, dtakeoff)
-parm[imaltTO, :] .= Len.(readtakeoff("takeoff_alt"))
+parm[imaltTO, :] .= Distance.(readtakeoff("takeoff_alt"))
 parg[igmubrake] = readtakeoff("braking_resistance_coeff")
 parg[igmuroll]  = readtakeoff("rolling_resistance_coeff")
-parg[ighobst]   = Len(readtakeoff("takeoff_obstacle_height"))
+parg[ighobst]   = Distance(readtakeoff("takeoff_obstacle_height"))
 parg[igcdefan]  = readtakeoff("CD_dead_engine")
 parg[igCDgear]  = readtakeoff("CD_landing_gear")
 parg[igCDspoil] = readtakeoff("CD_spoilers")
-parg[iglBFmax]  = Len(readtakeoff("max_balanced_field_length"))
+parg[iglBFmax]  = Distance(readtakeoff("max_balanced_field_length"))
 parg[igNland]   = readtakeoff("Nland")
 
 T0TO = Temp.(readtakeoff("takeoff_T"))
 parm[imT0TO, :] .= T0TO 
-para[iaclpmax, ipclimb1, :] .= readtakeoff("CL_max_perp")
+
 para[iaclpmax, ipstatic:ipcutback, :] .= readtakeoff("CL_max_perp")
+para[iaclpmax, ipclimb1, :] .= readtakeoff("CL_max_perp")
 para[iaclpmax, ipdescentn, :] .= readtakeoff("CL_max_perp")
 
 ##Climb parameters
 climb = readmis("Climb")
 dclimb = dmis["Climb"]
-parg[iggtocmin] = Angle(read_input("minimum_top-of-climb_gradient",
+parg[iggtocmin] = Angle.(read_input("minimum_top-of-climb_gradient",
                  climb, dclimb))
 
 ##Cruise parameters
 cruise = readmis("Cruise")
 dcruise = dmis["Cruise"]
 readcruise(x) = read_input(x, cruise, dcruise)
-para[iaalt, ipcruise1, :] .= Len.(readcruise("cruise_alt"))
-para[iaMach, ipclimbn:ipdescent1, :] .= readcruise("cruise_mach")
-para[iaCL, ipclimb1+1:ipdescentn-1, :] .= readcruise("cruise_CL")
+para[iaalt, ipcruise1, :] .= Distance.(readcruise("cruise_alt"))
+
+para[iaMach, ipclimbn:ipdescent1, :] .= transpose(readcruise("cruise_mach")) #transpose for proper vector broadcasting
+para[iaCL, ipclimb1+1:ipdescentn-1, :] .= transpose(readcruise("cruise_CL")) 
 
 ##Descent parameters
 des = readmis("Descent")
 ddes = dmis["Descent"]
 readdes(x) = read_input(x, des, ddes)
-parm[imgamVDE1, :] .= Angle(readdes("descent_angle_top-of-descent"))
-parm[imgamVDEn, :] .= Angle(readdes("descent_angle_bottom-of-descent"))
+parm[imgamVDE1, :] .= Angle.(readdes("descent_angle_top-of-descent"))
+parm[imgamVDEn, :] .= Angle.(readdes("descent_angle_bottom-of-descent"))
 
 #---------- End Mission vars --------------
 
@@ -208,19 +268,114 @@ parm[imgamVDEn, :] .= Angle(readdes("descent_angle_bottom-of-descent"))
 # Setup Fuselage 
 fuse = read_input("Fuselage", data, default)
 dfuse = default["Fuselage"]
-cabinPressureAlt_km = convertDist(parse_unit(read_input("cabin_pressure_altitude",
+
+#cabin pressure setting, by explicit pressure value or altitude
+#explicit value takes precedence
+if  "cabin_pressure" in keys(fuse)
+    p_cabin = Pressure.(read_input("cabin_pressure",fuse,dfuse))
+
+else  #if not set explicitly, use altitude (set by default)
+    cabinPressureAlt_km = convertDist(parse_unit(read_input("cabin_pressure_altitude",
                                             fuse, dfuse))..., "km")
-_, p_cabin, _, _, _ = atmos(cabinPressureAlt_km)
+    _, p_cabin, _, _, _ = atmos(cabinPressureAlt_km)
+end
 parg[igpcabin] = p_cabin
+
+geom = read_input("Geometry", fuse, dfuse)
+dgeom = dfuse["Geometry"]
+readgeom(x) = read_input(x, geom, dgeom)
+    
+    # Before doing anything else, first learn the shape of the fuselage 
+    # cross-section so you can create the appropriate typed Fuselage.
+    
+    # Number of webs = number of bubbles - 1
+    n_bubbles = Int(readgeom("number_of_bubbles"))
+
+    radius = Distance(readgeom("radius"))
+    dz = Distance(readgeom("dRadius"))
+    dy = Distance(readgeom("y_offset"))
+
+    if n_bubbles > 1 && dy == 0.0
+        @warn "Multi-bubble ('$(n_webs+1)') fuselage specified but "*
+        "y-offset of bubble set to 0.0. "*
+        "Assuming this is a single-bubble design and setting 'number_of_bubbles' = 0"
+        n_bubbles = 1
+    end
+
+    if n_bubbles == 1
+        cross_section = SingleBubble(radius = radius, bubble_lower_downward_shift = dz)
+    else
+        n_webs = n_bubbles - 1
+        cross_section = MultiBubble(radius = radius, bubble_lower_downward_shift = dz,
+        bubble_center_y_offset = dy, n_webs = n_webs)
+    end
+    fuselage = Fuselage{typeof(cross_section)}() #Create the right type of fuselage
+    
+    fuselage.layout.cross_section = cross_section
+    fuselage.cabin.exit_limit = exitlimit
+    #Boolean to check if cabin length has to be recalculated; if true, this is done 
+    #after loading the wing and stabilizer positions
+    calculate_cabin = readgeom("calculate_cabin_length") 
+    is_doubledecker = Bool(readgeom("double_decker"))
+
+    if is_doubledecker #If aircraft is a double decker
+        fuselage.n_decks =  2
+        fuselage.cabin.floor_distance = Distance(readgeom("floor_distance")) #read vertical distance between floors
+        fuselage.cabin.unit_load_device = readgeom("unit_load_device")
+        fuselage.cabin.min_top_cabin_height = Distance(readgeom("min_top_cabin_height"))
+    else
+        fuselage.n_decks =  1
+    end
+    if calculate_cabin
+        fuselage.cabin.front_seat_offset = Distance(readgeom("front_seat_offset"))
+        fuselage.cabin.rear_seat_offset = Distance(readgeom("rear_seat_offset"))
+    end
+
+    fuselage.cabin.seat_pitch = Distance(readgeom("seat_pitch"))
+    fuselage.cabin.seat_width = Distance(readgeom("seat_width"))
+    fuselage.cabin.seat_height = Distance(readgeom("seat_height"))
+    fuselage.cabin.aisle_halfwidth = Distance(readgeom("aisle_halfwidth"))
+    parg[igrMh] = readgeom("HT_load_fuse_bend_relief")
+    parg[igrMv] = readgeom("VT_load_fuse_bend_relief")
+    fuselage.APU.r = [Distance(readgeom("x_APU")),0.0,0.0]
+    fuselage.HPE_sys.r  = [Distance(readgeom("x_HPE_sys")), 0.0, 0.0]
+
+    fuselage.fixed.r = [Distance(readgeom("x_fixed_weight")),0.0,0.0]
+
+    parg[igxeng] = Distance(readgeom("x_engines"))
+    parg[igyeng] = Distance(readgeom("y_critical_engines"))
+
+    
+    fuselage.layout.floor_depth = Distance(readgeom("floor_depth"))
+    fuselage.layout.nose_radius = readgeom("a_nose")
+    fuselage.layout.tail_radius = readgeom("b_tail")
+    fuselage.layout.taper_tailcone = readgeom("tailcone_taper")
+
+    fuse_end = readgeom("tapers_to")
+    #throw error if fuse_end isn't a supported fuse taper
+    if !(fuse_end in ["point", "edge"])
+        error("Fuselage can only be closed to a 'point' or an 'edge' but '$fuse_end' was provided.")
+    else
+        fuselage.layout.opt_tapers_to = fuse_end
+    end
+
+    fuselage.layout.x_nose = Distance(readgeom("x_nose_tip")) 
+    fuselage.layout.x_pressure_shell_fwd = Distance(readgeom("x_pressure_shell_fwd"))
+    fuselage.layout.x_pressure_shell_aft = Distance(readgeom("x_pressure_shell_aft"))
+    fuselage.layout.x_start_cylinder = Distance(readgeom("x_start_cylinder"))
+    fuselage.layout.x_end_cylinder = Distance(readgeom("x_end_cylinder"))
+    fuselage.layout.x_cone_end = Distance(readgeom("x_cone_end"))
+    fuselage.layout.x_end = Distance(readgeom("x_end")) 
+    fuselage.layout.l_cabin_cylinder = fuselage.layout.x_end_cylinder - fuselage.layout.x_start_cylinder
+
 
 aero = read_input("Aero", fuse, dfuse)
 daero = dfuse["Aero"]
 readaero(x) = read_input(x, aero, daero)
-    para[iafexcdf, 1:iptotal, :] .= readaero("excrescence_drag_factor")
-
-    para[iafduo, :, :] .= readaero("wingroot_fuse_overspeed")
-    para[iafdus, :, :] .= readaero("wingbreak_fuse_overspeed")
-    para[iafdut, :, :] .= readaero("wingtip_fuse_overspeed")
+    para[iafexcdf, :, :] .= transpose(readaero("excrescence_drag_factor")) #transpose for proper vector broadcasting
+    para[iafduo, :, :] .= transpose(readaero("wingroot_fuse_overspeed"))
+    para[iafdus, :, :] .= transpose(readaero("wingbreak_fuse_overspeed"))
+    para[iafdut, :, :] .= transpose(readaero("wingtip_fuse_overspeed"))
 
     parg[igCMVf1] = Vol(readaero("fuse_moment_volume_deriv"))
     parg[igCLMf0] = readaero("CL_zero_fuse_moment")
@@ -230,113 +385,191 @@ readaero(x) = read_input(x, aero, daero)
 weight = read_input("Weights", fuse, dfuse)
 dweight = dfuse["Weights"]
 readweight(x) = read_input(x, weight, dweight)
-    parg[igfframe]  = readweight("frame")
-    parg[igfstring] = readweight("stringer")
-    parg[igffadd]   = readweight("additional")
+    fuselage.weight_frac_frame = readweight("frame")
+    fuselage.weight_frac_stringers = readweight("stringer")
+    fuselage.weight_frac_skin_addl   = readweight("additional")
 
-    parg[igWfix] = Force(readweight("fixed_weight"))
+    fuselage.fixed.W = Force(readweight("fixed_weight"))
 
-    parg[igWpwindow] = readweight("window_per_length")
-    parg[igWppinsul] = readweight("window_insul_per_area")
-    parg[igWppfloor] = readweight("floor_weight_per_area")
+    fuselage.window_W_per_length= readweight("window_per_length")
+    fuselage.insulation_W_per_area = readweight("window_insul_per_area")
+    fuselage.floor_W_per_area = readweight("floor_weight_per_area")
 
-    parg[igfhpesys] = readweight("HPE_sys_weight_fraction")
-    parg[igflgnose] = readweight("LG_nose_weight_fraction")
-    parg[igflgmain] = readweight("LG_main_weight_fraction")
-
-    parg[igfapu] = readweight("APU_weight_fraction")
-    parg[igfseat] = readweight("seat_weight_fraction")
-    parg[igfpadd] = readweight("add_payload_weight_fraction")
-
-geom = read_input("Geometry", fuse, dfuse)
-dgeom = dfuse["Geometry"]
-readgeom(x) = read_input(x, geom, dgeom)
-    parg[igRfuse]  = Len(readgeom("radius"))
-    parg[igdRfuse] = Len(readgeom("dRadius"))
-    parg[igwfb]    = Len(readgeom("y_offset"))
-    parg[ighfloor] = Len(readgeom("floor_depth"))
-    parg[ignfweb]  = readgeom("Nwebs")
-
-    parg[iganose] = readgeom("a_nose")
-    parg[igbtail] = readgeom("b_tail")
-
-    fuse_end = lowercase(readgeom("taper_fuse_to")) 
-    if fuse_end == "point"
-        pari[iifclose] = 0
-    elseif fuse_end == "edge"
-        pari[iifclose] = 1
-    else
-        pari[iifclose] = 0
-        @warn "Fuselage can only be closed to a 'point' or an 'edge'"*
-                " but '$fuse_end' was provided."*
-                " Setting fuselage to end at a point."
-    end
-
-    parg[iglambdac] = readgeom("tailcone_taper")
-    parg[igrMh] = readgeom("HT_load_fuse_bend_relief")
-    parg[igrMv] = readgeom("VT_load_fuse_bend_relief")
-
-    parg[igxnose]   = Len(readgeom("x_nose_tip")) 
-    parg[igxshell1] = Len(readgeom("x_pressure_shell_fwd"))
-    parg[igxblend1] = Len(readgeom("x_start_cylinder"))
-    parg[igxblend2] = Len(readgeom("x_end_cylinder"))
-    parg[igxshell2] = Len(readgeom("x_pressure_shell_aft"))
-    parg[igxconend] = Len(readgeom("x_cone_end"))
-    parg[igxend]    = Len(readgeom("x_end")) 
+    fuselage.HPE_sys.W = readweight("HPE_sys_weight_fraction")
     
-    parg[igxlgnose]  = Len(readgeom("x_nose_landing_gear"))
-    parg[igdxlgmain] = Len(readgeom("x_main_landing_gear_offset"))
-    parg[igxapu]     = Len(readgeom("x_APU"))
-    parg[igxhpesys]  = Len(readgeom("x_HPE_sys"))
-
-    parg[igxfix] = Len(readgeom("x_fixed_weight"))
-
-    parg[igxeng] = Len(readgeom("x_engines"))
-    parg[igyeng] = Len(readgeom("y_critical_engines"))
+    fuselage.APU.W = readweight("APU_weight_fraction")*exitlimit*Wpax
+    fuselage.seat.W = readweight("seat_weight_fraction")*exitlimit*Wpax
+    fuselage.added_payload.W = readweight("add_payload_weight_fraction")*exitlimit*Wpax
 
 # ------ End fuse -------
+
+# ---------------------------------
+# Landing gear
+# ---------------------------------
+lg = read_input("LandingGear", data, default)
+dlg = default["LandingGear"]
+readlg(x::String) = read_input(x, lg, dlg)
+
+#Landing gear CG positions or offsets
+xlgnose = Distance(readlg("x_nose_landing_gear"))
+landing_gear.nose_gear.weight = TASOPT.structures.Weight(W = 0.0, x = xlgnose)
+landing_gear.main_gear.distance_CG_to_landing_gear = Distance(readlg("x_main_landing_gear_offset"))
+
+#The mass model for the landing gear can be specified by the user
+lgmodel = readlg("landing_gear_model")
+landing_gear.model = lgmodel
+
+if lowercase(lgmodel) == "mass_fractions" #This is the most basic model, just fixed fractions of the MTOW
+    landing_gear.nose_gear.overall_mass_fraction = readlg("LG_nose_weight_fraction")
+    landing_gear.main_gear.overall_mass_fraction = readlg("LG_main_weight_fraction")
+elseif lowercase(lgmodel) == "historical_correlations" #model based on historical-data relations in Raymer (2012)
+    landing_gear.main_gear.y_offset_halfspan_fraction = readlg("y_main_landing_gear_halfspan_fraction")
+    landing_gear.tailstrike_angle = Angle(readlg("tailstrike_angle"))
+    landing_gear.wing_dihedral_angle = Angle(readlg("wing_dihedral_angle")) #TODO consider storing this as a wing parameter
+    landing_gear.engine_ground_clearance = Distance(readlg("engine_ground_clearance"))
+    landing_gear.nose_gear.number_struts = readlg("LG_nose_number_struts")
+    landing_gear.nose_gear.wheels_per_strut = readlg("LG_nose_wheels_per_strut")
+    landing_gear.main_gear.number_struts = readlg("LG_main_number_struts")
+    landing_gear.main_gear.wheels_per_strut = readlg("LG_main_wheels_per_strut")
+end
+# ------ End landing gear -------
+
+#Fuel storage options
+fuse_tank = fuselage_tank() #Initialize struct for fuselage fuel tank params
+
+has_wing_fuel = readfuel("fuel_in_wing")
+if !(has_wing_fuel) #If fuel is stored in fuselage
+    fuel_stor = readfuel("Storage")
+    dfuel_stor = dfuel["Storage"]
+    readfuel_storage(x::String) = read_input(x, fuel_stor, dfuel_stor)
+
+    fuse_tank.placement = readfuel_storage("tank_placement")
+    fuse_tank.fueltype = fueltype
+    fuse_tank.clearance_fuse = Distance(readfuel_storage("fuselage_clearance"))
+
+    fuse_tank.sizes_insulation = readfuel_storage("sizes_insulation")
+    fuse_tank.t_insul = readfuel_storage("insulation_segment_base_thickness")
+    insul_mats_names = readfuel_storage("insulation_material")
+    insul_mats = []
+    for insul_mat_name in insul_mats_names
+        push!(insul_mats, ThermalInsulator(insul_mat_name))
+    end
+    fuse_tank.material_insul = insul_mats
+    if fuse_tank.sizes_insulation
+        fuse_tank.boiloff_rate = readfuel_storage("cruise_boiloff_rate")
+        fuse_tank.iinsuldes = readfuel_storage("insulation_thicknesses_design_indices")
+    end
+    
+    inner_mat_name = readfuel_storage("inner_vessel_material")
+    fuse_tank.inner_material = StructuralAlloy(inner_mat_name)
+    
+    fuse_tank.ARtank = readfuel_storage("tank_aspect_ratio")
+    fuse_tank.theta_inner = Angle(readfuel_storage("inner_vessel_support_angle"))
+
+    fuse_tank.pvent = Pressure(readfuel_storage("pressure_venting"))
+    fuse_tank.pinitial = Pressure(readfuel_storage("pressure_initial"))
+    fuse_tank.t_hold_orig = Time(readfuel_storage("hold_departure"))
+    fuse_tank.t_hold_dest = Time(readfuel_storage("hold_arrival"))
+    
+    fuse_tank.ftankadd = readfuel_storage("additional_mass_fraction")
+    fuse_tank.ew = readfuel_storage("weld_efficiency")
+    fuse_tank.ullage_frac = readfuel_storage("ullage_fraction")
+    fuse_tank.qfac = readfuel_storage("heat_leak_factor")
+    fuse_tank.pfac = readfuel_storage("pressure_rise_factor")
+
+    #Store takeoff temperatures in tank object as well for ease of access
+    for (i,altTO) in enumerate(parm[imaltTO, :]/1e3)
+        T_std, _, _, _, _ = atmos(altTO)
+        push!(fuse_tank.TSLtank, parm[imT0TO,i] - T_std + Tref)
+    end
+    
+    has_vacuum = TASOPT.CryoTank.check_vacuum(fuse_tank.material_insul) #flag to check if an outer vessel is needed
+
+    if has_vacuum #If tank is double-walled
+        outer_mat_name = readfuel_storage("outer_vessel_material")
+        fuse_tank.outer_material = StructuralAlloy(outer_mat_name)
+
+        theta_outer_str = readfuel_storage("outer_vessel_support_angles")
+        theta_outer = []
+        for θstr in theta_outer_str
+            push!(theta_outer,  Angle(θstr))
+        end
+        fuse_tank.theta_outer = theta_outer
+        fuse_tank.Ninterm = 1.0 #Initial guess for first iteration
+    end
+
+    #Find number of tanks from placement
+    if (fuse_tank.placement == "front") || (fuse_tank.placement == "rear")
+        nftanks = 1
+    elseif (fuse_tank.placement == "both") 
+        nftanks = 2
+    end
+    fuse_tank.tank_count = nftanks
+else #else all fuel in wings
+    nftanks = 0
+end #if
+
 # ---------------------------------
 # Wing
 # ---------------------------------
 # Setup wing
-wing = read_input("Wing", data, default)
+wing_i = read_input("Wing", data, default)
 dwing = default["Wing"]
-readwing(x) = read_input(x, wing, dwing)
-    pari[iiwplan] = readwing("wing_planform")
-    if readwing("strut_braced_wing")
-        pari[iiwplan] = 2
+readwing(x) = read_input(x, wing_i, dwing)
+    wing.has_strut = readwing("has_strut")
+
+    wing.layout.sweep = readwing("sweep")
+    wing.layout.AR = readwing("AR")
+    wing.layout.max_span = Distance(readwing("maxSpan"))
+
+    wing.inboard.λ = readwing("inner_panel_taper_ratio")
+    wing.outboard.λ = readwing("outer_panel_taper_ratio")
+    wing.layout.ηs    = readwing("panel_break_location")
+    if !(0 ≤ wing.layout.ηs ≤ 1.0)
+        @warn "Wing span break location input was $(wing.layout.ηs); ηs must be 0 ≤ ηs ≤ 1.0"
+        if wing.layout.ηs > 1.0
+            wing.layout.ηs = 1.0
+        else 
+            wing.layout.ηs = 0.0
+        end
+        @warn "ηs set to $(wing.layout.ηs)"
     end
 
-    parg[igsweep] = readwing("sweep")
-    parg[igAR] = readwing("AR")
-    parg[igbmax] = Len(readwing("maxSpan"))
+    wing.layout.root_span = 2*Distance(readwing("center_box_halfspan"))
+    wing.inboard.cross_section.width_to_chord  = readwing("box_width_to_chord")
+    wing.outboard.cross_section.width_to_chord  = readwing("box_width_to_chord")
+   
+    wing.inboard.cross_section.thickness_to_chord = readwing("root_thickness_to_chord")
+    wing.outboard.cross_section.thickness_to_chord = readwing("spanbreak_thickness_to_chord")
+    
+    wing.inboard.cross_section.web_to_box_height  = readwing("hweb_to_hbox")
+    wing.outboard.cross_section.web_to_box_height = readwing("hweb_to_hbox")
+    wing.layout.spar_box_x_c = readwing("spar_box_x_c")
 
-    parg[iglambdas] = readwing("inner_panel_taper_ratio")
-    parg[iglambdat] = readwing("outer_panel_taper_ratio")
-    parg[igetas]    = readwing("panel_break_location")
+    wing.layout.box_x = Distance(readwing("x_wing_box"))
+    wing.layout.z = Distance(readwing("z_wing"))
 
-    parg[igbo] = 2*Len(readwing("center_box_halfspan"))
-    parg[igwbox]  = readwing("box_width_chord")
-    parg[ighboxo] = readwing("root_thickness_to_chord")
-    parg[ighboxs] = readwing("spanbreak_thickness_to_chord")
-    parg[igrh]    = readwing("hweb_to_hbox")
-    parg[igXaxis] = readwing("spar_box_x_c")
+    parg[igdxeng2wbox] = wing.layout.box_x - parg[igxeng] #TODO add this as a function of wing
 
-    parg[igxwbox] = Len(readwing("x_wing_box"))
-    parg[igzwing] = Len(readwing("z_wing"))
+    ## Strut details only used if has_strut is true
+    if wing.has_strut
+        wing.strut.z  = Distance(readwing("z_strut"))
+        wing.strut.thickness_to_chord  = readwing("strut_toc")
+        wing.strut.local_velocity_ratio = readwing("strut_local_velocity_ratio")
+    end
 
-    ## Strut details only used if strut_braced_wing is true
-    parg[igzs]      = Len(readwing("z_strut"))
-    parg[ighstrut]  = readwing("strut_toc")
-    parg[igrVstrut] = readwing("strut_local_velocity_ratio")
+    airfoil_data = joinpath(__TASOPTroot__,"airfoil_data/", readwing("airfoil"))
+    wing.airsection = TASOPT.aerodynamics.airtable(airfoil_data);
 
 # ----------------------------------
 # ------- Wing Aerodynamics --------
 # ----------------------------------
 aero = readwing("Aero")
 daero = dwing["Aero"]
-    parg[igfLo] = readaero("fuselage_lift_carryover_loss_factor")
-    parg[igfLt] = readaero("wing_tip_lift_rolloff_factor")
+    wing.fuse_lift_carryover = readaero("fuselage_lift_carryover_loss_factor")
+    wing.tip_lift_loss = readaero("wing_tip_lift_rolloff_factor")
+    htail.tip_lift_loss = wing.tip_lift_loss
+    vtail.tip_lift_loss = wing.tip_lift_loss
 
     para[iacdfw, 1:iptotal, :]   .= readaero("lowspeed_cdf")  #  cdfw    wing profile cd for low speed (takeoff, initial climb)
     para[iacdpw, 1:iptotal, :]   .= readaero("lowspeed_cdp")  #  cdpw    
@@ -355,31 +588,34 @@ daero = dwing["Aero"]
 #- takeoff, initial climb
 takeoff = readaero("Takeoff")
 dtakeoff = daero["Takeoff"]
-    para[iarcls, 1:ipclimb1, :] .= readtakeoff("cls_clo")    #  rcls    break/root cl ratio = cls/clo
-    para[iarclt, 1:ipclimb1, :] .= readtakeoff("clt_clo")    #  rclt    tip  /root cl ratio = clt/clo
-    para[iacmpo, 1:ipclimb1, :] .= readtakeoff("cm_o")      #  cmpo    root  cm
-    para[iacmps, 1:ipclimb1, :] .= readtakeoff("cm_s")      #  cmps    break cm
-    para[iacmpt, 1:ipclimb1, :] .= readtakeoff("cm_t")      #  cmpt    tip   cm
+    #transpose for proper vector broadcasting
+    para[iarcls, 1:ipclimb1, :] .= transpose(readtakeoff("cls_clo"))    #  rcls    break/root cl ratio = cls/clo
+    para[iarclt, 1:ipclimb1, :] .= transpose(readtakeoff("clt_clo"))    #  rclt    tip  /root cl ratio = clt/clo
+    para[iacmpo, 1:ipclimb1, :] .= transpose(readtakeoff("cm_o"))      #  cmpo    root  cm
+    para[iacmps, 1:ipclimb1, :] .= transpose(readtakeoff("cm_s"))      #  cmps    break cm
+    para[iacmpt, 1:ipclimb1, :] .= transpose(readtakeoff("cm_t"))      #  cmpt    tip   cm
 
 # Clean climb cruise descent and for wing structure sizing
 climb = readaero("Climb")
 dclimb = daero["Climb"]
 readclimb(x) = read_input(x, climb, dclimb)
-    para[iarcls, ipclimb1+1:ipdescentn-1, :] .= readclimb("cls_clo")   #  rcls    break/root cl ratio = cls/clo
-    para[iarclt, ipclimb1+1:ipdescentn-1, :] .= readclimb("clt_clo")   #  rclt    tip  /root cl ratio = clt/clo
-    para[iacmpo, ipclimb1+1:ipdescentn-1, :] .= readclimb("cm_o")      #  cmpo    root  cm
-    para[iacmps, ipclimb1+1:ipdescentn-1, :] .= readclimb("cm_s")      #  cmps    break cm
-    para[iacmpt, ipclimb1+1:ipdescentn-1, :] .= readclimb("cm_t")      #  cmpt    tip   cm
+    #transpose for proper vector broadcasting
+    para[iarcls, ipclimb1+1:ipdescentn-1, :] .= transpose(readclimb("cls_clo"))   #  rcls    break/root cl ratio = cls/clo
+    para[iarclt, ipclimb1+1:ipdescentn-1, :] .= transpose(readclimb("clt_clo"))   #  rclt    tip  /root cl ratio = clt/clo
+    para[iacmpo, ipclimb1+1:ipdescentn-1, :] .= transpose(readclimb("cm_o"))      #  cmpo    root  cm
+    para[iacmps, ipclimb1+1:ipdescentn-1, :] .= transpose(readclimb("cm_s"))      #  cmps    break cm
+    para[iacmpt, ipclimb1+1:ipdescentn-1, :] .= transpose(readclimb("cm_t"))      #  cmpt    tip   cm
 
 # Landing, forward CG tail sizing case
 land = readaero("Landing")
 dland = daero["Landing"]
 readland(x) = read_input(x, land, dland)
-    para[iarcls, ipdescentn, :] .= readland("cls_clo")   #  rcls    break/root cl ratio = cls/clo
-    para[iarclt, ipdescentn, :] .= readland("clt_clo")   #  rclt    tip  /root cl ratio = clt/clo
-    para[iacmpo, ipdescentn, :] .= readland("cm_o")      #  cmpo    root  cm
-    para[iacmps, ipdescentn, :] .= readland("cm_s")      #  cmps    break cm
-    para[iacmpt, ipdescentn, :] .= readland("cm_t")      #  cmpt    tip   cm
+    #transpose for proper vector broadcasting
+    para[iarcls, ipdescentn, :] .= transpose(readland("cls_clo"))   #  rcls    break/root cl ratio = cls/clo
+    para[iarclt, ipdescentn, :] .= transpose(readland("clt_clo"))   #  rclt    tip  /root cl ratio = clt/clo
+    para[iacmpo, ipdescentn, :] .= transpose(readland("cm_o"))      #  cmpo    root  cm
+    para[iacmps, ipdescentn, :] .= transpose(readland("cm_s"))      #  cmps    break cm
+    para[iacmpt, ipdescentn, :] .= transpose(readland("cm_t"))      #  cmpt    tip   cm
     
 # ----------------------------------
 # ---------- Wing Weight -----------
@@ -388,14 +624,13 @@ readland(x) = read_input(x, land, dland)
 # and secondary wing components, 
 weight = readwing("Weightfracs")
 dweight = dwing["Weightfracs"]
-
-    parg[igfflap] = readweight("flap")
-    parg[igfslat] = readweight("slat")
-    parg[igfaile] = readweight("aileron")
-    parg[igflete] = readweight("leading_trailing_edge")
-    parg[igfribs] = readweight("ribs")
-    parg[igfspoi] = readweight("spoilers")
-    parg[igfwatt] = readweight("attachments")
+    wing.weight_frac_flap  = readweight("flap")
+    wing.weight_frac_slat = readweight("slat")
+    wing.weight_frac_ailerons = readweight("aileron")
+    wing.weight_frac_leading_trailing_edge = readweight("leading_trailing_edge")
+    wing.weight_frac_ribs = readweight("ribs")
+    wing.weight_frac_spoilers = readweight("spoilers")
+    wing.weight_frac_attachments = readweight("attachments")
 
 # ---- End Wing -----
 
@@ -405,109 +640,125 @@ dweight = dwing["Weightfracs"]
 tails = read_input("Stabilizers", data, default)
 dtails = default["Stabilizers"]
 readtails(x) = read_input(x, tails, dtails)
-    para[iacdft, 1:iptotal, :]   .= readtails("lowspeed_cdf")  #  cdft    tail profile cd
-    para[iacdpt, 1:iptotal, :]   .= readtails("lowspeed_cdp")  #  cdpt    
-    para[iaRereft, 1:iptotal, :] .= readtails("Re_ref")  #  Rereft  
+    #transpose for proper broadcasting
+    para[iacdft, 1:iptotal, :]   .= transpose(readtails("lowspeed_cdf"))  #  cdft    tail profile cd
+    para[iacdpt, 1:iptotal, :]   .= transpose(readtails("lowspeed_cdp"))  #  cdpt    
+    para[iaRereft, 1:iptotal, :] .= transpose(readtails("Re_ref"))  #  Rereft  
 
-    para[iafexcdt, 1:iptotal, :] .= readtails("excrescence_drag_factor")
+    para[iafexcdt, 1:iptotal, :] .= transpose(readtails("excrescence_drag_factor"))
 
-    htail = readtails("Htail")
+    htail_input = readtails("Htail")
     dhtail = dtails["Htail"]
 
-readhtail(x) = read_input(x, htail, dhtail)
-    parg[igARh]     = readhtail("AR_Htail")
-    parg[iglambdah] = readhtail("taper")
-    parg[igsweeph]  = readhtail("sweep")
-    parg[igboh]     = 2*Len(readhtail("center_box_halfspan"))
+readhtail(x) = read_input(x, htail_input, dhtail)
+    htail.layout.AR = readhtail("AR_Htail")
+    htail.outboard.λ = readhtail("taper")
+    #TODO: change 
+    multi_section = readhtail("multi_section")
+    # if !multi_section
+    #     htail.layout.ηs = 0.0
+    # end
+    htail.inboard.λ = 1.0
+    
+    # igbs = igbo
+    # strutz = 0
+    # lambdat = gammat = iglambdah 
+    # lambdas = gammas = 1.0
 
-    parg[igxhbox]  = Len(readhtail("x_Htail"))
-    parg[igzhtail] = Len(readhtail("z_Htail"))
+    # create inner
+    # lambdas, gammas = 1.0
+    # igbs = igbo
+    # hboxs = hboxh
+    htail.layout.sweep = readhtail("sweep")
+    htail.layout.root_span = 2*Distance(readhtail("center_box_halfspan"))
 
-    parg[igCLhNrat] = readhtail("max_tail_download")
+    htail.layout.box_x  = Distance(readhtail("x_Htail"))
+    htail.layout.z = Distance(readhtail("z_Htail"))
+    htail.ntails  = readhtail("number_Htails")
 
-    htail_size = lowercase(readhtail("HTsize"))
-    if htail_size == "vh"
-        pari[iiHTsize] = 1
-        parg[igVh] = readhtail("Vh")
-    elseif htail_size == "maxforwardcg"
-        pari[iiHTsize] = 2
-        parg[igCLhCGfwd] = readhtail("CLh_at_max_forward_CG")
-        parg[igVh] = 1.0
+    htail.CL_CLmax = readhtail("max_tail_download")
+
+    htail_sizing = readhtail("opt_sizing")
+    if compare_strings(htail_sizing,"fixed_Vh")
+        htail.opt_sizing = htail_sizing
+        htail.volume = readhtail("Vh")
+    elseif compare_strings(htail_sizing,"CLmax_fwdCG")
+        htail.opt_sizing = htail_sizing
+        htail.CL_max_fwd_CG = readhtail("CLh_at_max_forward_CG")
+        htail.volume = 1.0
     else
         error("Horizontal tail can only be sized via:
-            1: specified tail volume coeff \"Vh\";
-            2: specified CLh at max-forward CG case during landing (\"maxforwardCG\")")
+            \"fixed_Vh\":   specified tail volume coeff (\"Vh\");
+            \"CLmax_fwdCG\": specified CLh (\"CLh_at_max_forward_CG\") at 'worst-case': max-forward CG, max wing lift")
     end
 
-
-    movewing = readhtail("move_wingbox")
-    if typeof(movewing) == Int
-        pari[iixwmove] = movewing
-    elseif typeof(movewing) <: AbstractString
-        movewing = lowercase(movewing)
-        if movewing =="fix"
-            pari[iixwmove] = 0
-        elseif movewing == "clhspec"
-            pari[iixwmove] = 1
-        elseif movewing == "smmin"
-            pari[iixwmove] = 2
-        else
-            error("Wing position duirng horizontal tail sizing can only be sized via:
-            0: \"fix\" wing position;
-            1: move wing to get CLh=\"CLhspec\" in cruise 
-            2: move wing to get min static margin = \"SMmin\"")
-        end
-    else
-        error("Check wing position input during htail sizing... something isn't right")
+    opt_move_wing = readhtail("opt_move_wing")
+    #if not an expected input, throw an error
+    valid_options = ["fixed", "fixed_CLh", "min_static_margin"]
+    if !(any(compare_strings.(opt_move_wing, valid_options)))
+        error("Input error: \"opt_move_wing\" = $opt_move_wing\nWing position during horizontal tail sizing can only be sized via:\n" *
+              join([">\"$opt\"" for opt in valid_options], "\n"))
     end
-    parg[igSMmin] = readhtail("SM_min")
+
+    htail.SM_min = readhtail("SM_min")
 
     parg[igCLhspec] = readhtail("CLh_spec")
 
-    parg[igdepsda] = readhtail("downwash_factor")
+    htail.downwash_factor = readhtail("downwash_factor")
     parg[igdCLnda] = readhtail("nacelle_lift_curve_slope")
 
     parg[igfCDhcen] = readhtail("CD_Htail_from_center")
-    parg[igCLhmax]  = readhtail("CLh_max")
+    htail.CL_max  = readhtail("CLh_max")
 
-    parg[igfhadd] = readhtail("added_weight_fraction")
+    htail.weight_fraction_added = readhtail("added_weight_fraction")
 
-    parg[igwboxh] = readhtail("box_width_chord")
-    parg[ighboxh] = readhtail("box_height_chord")
-    parg[igrhh]   = readhtail("web_height_hbox")
+    htail.outboard.cross_section.width_to_chord = readhtail("box_width_to_chord")
+    htail.outboard.cross_section.thickness_to_chord = readhtail("box_height_chord")
+    htail.outboard.cross_section.web_to_box_height  = readhtail("web_height_hbox")
 
+    htail.inboard.cross_section.width_to_chord = readhtail("box_width_to_chord")
+    htail.inboard.cross_section.thickness_to_chord = readhtail("box_height_chord")
+    htail.inboard.cross_section.web_to_box_height  = readhtail("web_height_hbox")
+    
 
-vtail = readtails("Vtail")
+vtail_input = readtails("Vtail")
 dvtail = dtails["Vtail"]
-readvtail(x) = read_input(x, vtail, dvtail)
-    parg[igARv]     = readvtail("AR_Vtail")
-    parg[iglambdav] = readvtail("taper")
-    parg[igsweepv]  = readvtail("sweep")
-    parg[igbov]     = Len(readvtail("center_box_halfspan"))
-    parg[igxvbox]  = Len(readvtail("x_Vtail"))
-    parg[ignvtail]  = readvtail("number_Vtails")
+readvtail(x) = read_input(x, vtail_input, dvtail)
+    vtail.layout.AR = readvtail("AR_Vtail")
+    vtail.outboard.λ = readvtail("taper")
+    vtail.inboard.λ = 1.0
+    vtail.layout.sweep  = readvtail("sweep")
+    vtail.layout.root_span = Distance(readvtail("center_box_halfspan"))
+    vtail.layout.box_x  = Distance(readvtail("x_Vtail"))
+    vtail.ntails  = readvtail("number_Vtails")
 
-    vtail_size = lowercase(readvtail("VTsize"))
-    if vtail_size == "vv"
-        pari[iiVTsize] = 1
-        parg[igVv] = readvtail("Vv")
-    elseif vtail_size == "oei"
-        pari[iiVTsize] = 2
+    vtail_sizing = readvtail("opt_sizing")
+    if compare_strings(vtail_sizing, "fixed_Vv")
+        vtail.opt_sizing = vtail_sizing
+        vtail.volume = readvtail("Vv")
+    elseif compare_strings(vtail_sizing, "OEI")
+        vtail.opt_sizing = vtail_sizing
         parg[igCLveout] = readvtail("CLv_at_engine_out")
     else
         error("Vertical tail can only be sized via:
-            1: specified tail volume coeff \"Vv\";
-            2: specified CL at one engine out trim (\"OEI\")")
+            \"fixed_Vv\": specified tail volume coeff \"Vv\";
+            \"OEI\": specified CL at one engine out trim (\"OEI\") via \"CLv_at_engine_out\"")
     end
 
-    parg[igCLvmax] = readvtail("CLv_max")
+    vtail.CL_max = readvtail("CLv_max")
 
-    parg[igfvadd] = readvtail("added_weight_fraction")
-    parg[igwboxv] = readvtail("box_width_chord")
-    parg[ighboxv] = readvtail("box_height_chord")
-    parg[igrhv]   = readvtail("web_height_hbox")
+    vtail.weight_fraction_added = readvtail("added_weight_fraction")
+    vtail.outboard.cross_section.width_to_chord = readvtail("box_width_to_chord")
+    vtail.outboard.cross_section.thickness_to_chord = readvtail("box_height_chord")
+    vtail.outboard.cross_section.web_to_box_height  = readvtail("web_height_hbox")
+
+    vtail.inboard.cross_section.width_to_chord = readvtail("box_width_to_chord")
+    vtail.inboard.cross_section.thickness_to_chord = readvtail("box_height_chord")
+    vtail.inboard.cross_section.web_to_box_height  = readvtail("web_height_hbox")
 
 # ----- End Stabilizers -----
+
+# ---------------------------------
 
 # ---------------------------------
 # Structures
@@ -517,44 +768,69 @@ structures = read_input("Structures", data, default)
 dstructures = default["Structures"]
 readstruct(x) = read_input(x, structures, dstructures)
     parg[igsigfac] = readstruct("stress_factor")
-    #- allowable stresses at sizing cases
-    parg[igsigskin] = Stress(readstruct("sigma_fuse_skin"))
-    parg[igsigbend] = Stress(readstruct("sigma_fuse_bending"))
-
-    parg[igsigcap] = Stress(readstruct("sigma_caps"))
-    parg[igtauweb] = Stress(readstruct("tau_webs"))
-
-    parg[igsigstrut] = Stress(readstruct("sigma_struts"))
 
     #- fuselage shell modulus ratio, for bending material sizing
-    parg[igrEshell] = readstruct("fuse_shell_modulus_ratio")
+    fuselage.ratio_young_mod_fuse_bending = readstruct("fuse_shell_modulus_ratio")
 
-    #- moduli, for strut-induced buckling load estimation
-    parg[igEcap] = Stress(readstruct("E_wing_spar_cap"))
-    parg[igEstrut] = Stress(readstruct("E_struts"))
+    caps_max_avg = readstruct("caps_max_avg_stress")
+    caps_safety_fac = readstruct("caps_safety_factor")
+    wing.inboard.caps.material = StructuralAlloy(readstruct("caps_material"),
+                                max_avg_stress = caps_max_avg,
+                                safety_factor = caps_safety_fac)
+    wing.outboard.caps.material = StructuralAlloy(readstruct("caps_material"),
+                                max_avg_stress = caps_max_avg,
+                                safety_factor = caps_safety_fac)
 
-    #- structural material densities
-    parg[igrhoskin] = Density(readstruct("skin_density"))  #  rhoskin     fuselage skin
-    parg[igrhobend] = Density(readstruct("fuse_stringer_density"))  #  rhobend     fuselage bending stringers 
-    parg[igrhocap]  = Density(readstruct("wing_tail_cap_density"))  #  rhocap  	wing, tail bending caps	 
-    parg[igrhoweb]  = Density(readstruct("wing_tail_web_density"))  #  rhoweb  	wing, tail shear webs	 
-    parg[igrhostrut]= Density(readstruct("strut_density"))  #  rhostrut	strut   
+    webs_max_avg = readstruct("webs_max_avg_stress")
+    webs_safety_fac = readstruct("webs_safety_factor")
+    wing.inboard.webs.material = StructuralAlloy(readstruct("webs_material"),
+                                max_avg_stress = webs_max_avg,
+                                safety_factor = webs_safety_fac)
+    wing.outboard.webs.material = StructuralAlloy(readstruct("webs_material"),
+                                max_avg_stress = webs_max_avg,
+                                safety_factor = webs_safety_fac)
+
+    skin_max_avg = readstruct("skin_max_avg_stress")
+    skin_safety_fac = readstruct("skin_safety_factor")
+    fuselage.skin.material =  StructuralAlloy(readstruct("skin_material"), 
+                                    max_avg_stress = skin_max_avg,
+                                    safety_factor = skin_safety_fac)
+
+    cone_max_avg = readstruct("cone_max_avg_stress")
+    cone_safety_fac = readstruct("cone_safety_factor")
+    fuselage.cone.material =  StructuralAlloy(readstruct("cone_material"), 
+                                    max_avg_stress = cone_max_avg,
+                                    safety_factor = cone_safety_fac)
+
+    bend_max_avg = readstruct("bending_max_avg_stress")
+    bend_safety_fac = readstruct("bending_safety_factor")
+    fuselage.bendingmaterial_h.material = StructuralAlloy(readstruct("bending_material"),
+                                max_avg_stress = bend_max_avg,
+                                safety_factor = bend_safety_fac)
+
+    fuselage.bendingmaterial_v.material = fuselage.bendingmaterial_h.material                            
+
+    floor_max_avg = readstruct("floor_max_avg_stress")
+    floor_safety_fac = readstruct("floor_safety_factor")
+    fuselage.floor.material = StructuralAlloy(readstruct("floor_material"),
+        max_avg_stress=floor_max_avg,
+        safety_factor=floor_safety_fac)
 
 # ---------------------------------
 # Propulsion systems
 # ---------------------------------
-
+propsys = read_input("prop_sys_arch", options, doptions)
 prop = read_input("Propulsion", data, default)
 dprop = default["Propulsion"]
 readprop(x) = read_input(x, prop, dprop)
     parg[igneng] = readprop("number_of_engines")
-    parg[igTmetal] = Temp(readprop("T_max_metal"))
+    parg[igTmetal] = Temp.(readprop("T_max_metal"))
     parg[igfTt4CL1] = readprop("Tt4_frac_bottom_of_climb")
     parg[igfTt4CLn] = readprop("Tt4_frac_top_of_climb")
 
-    pare[ieTt4, :, :] .= Temp(readprop("Tt4_cruise"))
+    pare[ieTt4, :, :] .= transpose(Temp.(readprop("Tt4_cruise"))) #transpose for proper broadcasting
 
-    Tt4TO = Temp(readprop("Tt4_takeoff"))
+    Tt4TO = transpose(Temp.(readprop("Tt4_takeoff")))
     pare[ieTt4, ipstatic, :] .= Tt4TO
     pare[ieTt4, iprotate, :] .= Tt4TO
     pare[ieTt4, iptakeoff, :] .= Tt4TO
@@ -564,7 +840,7 @@ readprop(x) = read_input(x, prop, dprop)
     pare[ieT0, iptakeoff, :] .= T0TO
 
     # Core in clean-flow -> 0; Core ingests KE defect -> 1
-    pari[iiBLIc] = !readprop("core_in_clean_flow")
+    eng_has_BLI_cores = !readprop("core_in_clean_flow")
 
     #Turbomachinery
     turb = readprop("Turbomachinery")
@@ -576,7 +852,7 @@ readturb(x) = read_input(x, turb, dturb)
     OPR = readturb("OPR")
     pif = readturb("Fan_PR")
     pilc = readturb("LPC_PR")
-    pihc = OPR/pilc
+    pihc = OPR./pilc
 
     pid = readturb("diffuser_PR")
     pib = readturb("burner_PR")
@@ -589,8 +865,6 @@ readturb(x) = read_input(x, turb, dturb)
     epolht = readturb("HPT_eta_poly") 
     epollt = readturb("LPT_eta_poly") 
 
-    pifK = readturb("FPR0")
-    epfK = readturb("Kf_polyeff")
     HTRf  = readturb("HTR_fan")
     HTRlc = readturb("HTR_LPC")
     HTRhc = readturb("HTR_HPC")
@@ -618,8 +892,6 @@ pare[ieepolhc, :, :] .= epolhc
 pare[ieepolht, :, :] .= epolht
 pare[ieepollt, :, :] .= epollt
 pare[ieetab, :, :] .= etab
-pare[iepifK, :, :] .= pifK
-pare[ieepfK, :, :] .= epfK
 pare[ieBPR, :, :] .= BPR
 pare[ieM2, :, :] .= M2
 pare[ieM25, :, :] .= M25
@@ -653,6 +925,10 @@ readcool(x) = read_input(x, cool, dcool)
     pare[ieefilm, :, :] .= efilm
     pare[ietfilm, :, :] .= tfilm
 
+    #HPT cooled efficiency
+    pare[iedehtdfc,:,:] .= readcool("HPT_efficiency_derivative_with_cooling")
+    pare[iefc0,:,:] .= readcool("baseline_cooling_fraction")
+
 # Offtakes
 off = readprop("Offtakes")
 doff = dprop["Offtakes"]
@@ -671,9 +947,9 @@ readoff(x) = read_input(x, off, doff)
     pare[ieTt9, :, :] .= Ttdischarge
     pare[iept9, :, :] .= Ptdischarge
 
-    parg[igmofWpay] = mofftpax / Wpax
+    parg[igmofWpay] = mofftpax ./ parm[imWperpax, 1]
     parg[igmofWMTO] = mofftmMTO / gee
-    parg[igPofWpay] = Pofftpax / Wpax
+    parg[igPofWpay] = Pofftpax ./ parm[imWperpax, 1]
     parg[igPofWMTO] = PofftmMTO / gee
 
 ## Nozzle areas
@@ -745,48 +1021,162 @@ weight = readprop("Weight")
 dweight = dprop["Weight"]
     parg[igfeadd] = read_input("engine_access_weight_fraction", weight, dweight)
     parg[igfpylon] = read_input("pylon_weight_fraction", weight, dweight)
-    TF_wmodel = read_input("weight_model", weight, dweight)
-    if lowercase(TF_wmodel) == "md"
-        pari[iiengwgt] = 0
-    elseif lowercase(TF_wmodel) == "basic"
-        pari[iiengwgt] = 1
-    elseif lowercase(TF_wmodel) == "advanced"
-        pari[iiengwgt] = 2
-    else
-        error("\"$TF_wmodel\" engine weight model was specifed. 
-        Engine weight can only be \"MD\", \"basic\" or \"advanced\".")
+    
+    #read/check engine weight model options
+    if compare_strings(propsys, "tf")
+    #TODO: reincorporate "pantalone_basic" and "pantalone_adv" for direct-drive turbofans
+        TF_wmodel = read_input("weight_model", weight, dweight)
+        if !(TF_wmodel in ["md", "fitzgerald_basic", "fitzgerald_adv"]) 
+            error("\"$TF_wmodel\" engine weight model was specifed. 
+            Engine weight can only be \"MD\", \"fitzgerald_basic\" or \"fitzgerald_adv\".")
+        end
+    elseif compare_strings(propsys, "te")
+        @warn("Propulsion weight models for turboelectric are currently not available.")
     end
 
-# Heat exchangers
+# Create engine object
+if compare_strings(propsys,"tf")
+    modelname = "turbofan_md"
+    enginecalc! = tfwrap!
+    engineweightname = TF_wmodel
+    engineweight! = tfweightwrap!
 
-try #If heat exchanger field exists in the input file
+    # Add custom engine weight increment
+    custom_weight_delta = read_input("custom_weight_delta", weight, dweight)  # line added by Nils
+    enginemodel = TASOPT.engine.TurbofanModel(modelname, enginecalc!, engineweightname, engineweight!, eng_has_BLI_cores, custom_weight_delta)  # last argument added by Nils
+    engdata = TASOPT.engine.EmptyData()
+elseif compare_strings(propsys,"fuel_cell_with_ducted_fan")
+    modelname = lowercase(propsys)
+    engineweightname = "nasa"
+
+    enginecalc! = calculate_fuel_cell_with_ducted_fan!
+    engineweight! = fuel_cell_with_ducted_fan_weight!
+    enginemodel = TASOPT.engine.FuelCellDuctedFan(modelname, enginecalc!, engineweightname, engineweight!, eng_has_BLI_cores)
+    pare[iePfanmax,:,:] .= 20e6
+
+    fcdata = TASOPT.engine.FuelCellDuctedFanData(2)
+
+    fcdata.type = "HT-PEMFC"
+    fcdata.current_density[iprotate,:] .= 1e4
+    fcdata.FC_temperature .= 453.15
+    fcdata.FC_pressure .= 3e5
+    fcdata.water_concentration_anode .= 0.1
+    fcdata.water_concentration_cathode .= 0.1
+    fcdata.λ_H2 .= 3.0
+    fcdata.λ_O2 .= 3.0
+    fcdata.thickness_membrane = 100e-6
+    fcdata.thickness_anode  = 250e-6
+    fcdata.thickness_cathode  = 250e-6
+    fcdata.design_voltage = 200.0
+    pare[ieRadiatorepsilon,:,:] .= 0.7
+    pare[ieRadiatorMp,:,:] .= 0.12
+    pare[ieDi,:,:] .= 0.4
+
+    para[iaROCdes, ipclimb1:ipclimbn,:] .= 500 * ft_to_m / 60
+    engdata = fcdata
+
+else
+    
+    error("Propulsion system \"$propsys\" specified. Choose between
+    > TF - turbo-fan
+    > TE - turbo-electric" )
+end
+engine = TASOPT.engine.Engine(enginemodel, engdata, Vector{TASOPT.engine.HeatExchanger}())
+    
+# Heat exchangers, only if in the model file (assigned 0 in the default .tomls)
+# Would be better if there were an independent toggle like `has_wing_fuel` for `fuse_tank` but good enough for now
+if "HeatExchangers" in keys(prop) && !isempty(prop["HeatExchangers"])
     HEx = readprop("HeatExchangers")
     dHEx = dprop["HeatExchangers"]
-        pare[iefrecirc, :, :] .= read_input("recirculation_flag", HEx, dHEx)
-        pare[ierecircT, :, :] .= read_input("recirculation_temperature", HEx, dHEx)
-        pare[iehlat, :, :] .= read_input("latent_heat", HEx, dHEx)
-        pare[ieDi, :, :] .= read_input("core_inner_diameter", HEx, dHEx)
-        
-        pare[iePreCorder, :, :] .= read_input("precooler_order", HEx, dHEx)
-        pare[iePreCepsilon, :, :] .= read_input("precooler_effectiveness", HEx, dHEx)
-        pare[iePreCMh, :, :] .= read_input("precooler_inlet_mach", HEx, dHEx)
+    HX_add_mass = read_input("added_mass_frac", HEx, dHEx)
+    
+    has_recirculation = read_input("has_recirculation", HEx, dHEx)
+    recircT = Temp(read_input("recirculation_temperature", HEx, dHEx))
+    pare[ieDi, :, :] .= Distance(read_input("core_inner_diameter", HEx, dHEx))
+    HXmaxL = Distance(read_input("maximum_heat_exchanger_length", HEx, dHEx))
+    
+    PreCorder = read_input("precooler_order", HEx, dHEx)
+    PreCepsilon = read_input("precooler_effectiveness", HEx, dHEx)
+    PreCMp = read_input("precooler_inlet_mach", HEx, dHEx)
 
-        pare[ieInterCorder, :, :] .= read_input("intercooler_order", HEx, dHEx)
-        pare[ieInterCepsilon, :, :] .= read_input("intercooler_effectiveness", HEx, dHEx)
-        pare[ieInterCMh, :, :] .= read_input("intercooler_inlet_mach", HEx, dHEx)
+    InterCorder = read_input("intercooler_order", HEx, dHEx)
+    InterCepsilon = read_input("intercooler_effectiveness", HEx, dHEx)
+    InterCMp = read_input("intercooler_inlet_mach", HEx, dHEx)
 
-        pare[ieRegenorder, :, :] .= read_input("regenerative_order", HEx, dHEx)
-        pare[ieRegenepsilon, :, :] .= read_input("regenerative_effectiveness", HEx, dHEx)
-        pare[ieRegenMh, :, :] .= read_input("regenerative_inlet_mach", HEx, dHEx)
+    Regenorder = read_input("regenerative_order", HEx, dHEx)
+    Regenepsilon = read_input("regenerative_effectiveness", HEx, dHEx)
+    RegenMp = read_input("regenerative_inlet_mach", HEx, dHEx)
 
-        pare[ieTurbCorder, :, :] .= read_input("turbine_cooler_order", HEx, dHEx)
-        pare[ieTurbCepsilon, :, :] .= read_input("turbine_cooler_effectiveness", HEx, dHEx)
-        pare[ieTurbCMh, :, :] .= read_input("turbine_cooler_inlet_mach", HEx, dHEx)
-catch #Do nothing if the heat exchanger field does not exist
+    TurbCorder = read_input("turbine_cooler_order", HEx, dHEx)
+    TurbCepsilon = read_input("turbine_cooler_effectiveness", HEx, dHEx)
+    TurbCMp = read_input("turbine_cooler_inlet_mach", HEx, dHEx)
+
+    all_eps = [PreCepsilon, InterCepsilon, Regenepsilon, TurbCepsilon]
+    all_types = ["PreC", "InterC", "Regen", "TurbC"]
+    all_orders = [PreCorder, InterCorder, Regenorder, TurbCorder]
+    all_Mp = [PreCMp, InterCMp, RegenMp, TurbCMp]
+
+    HXtypes = []
+    Mp_in = []
+    ε_des = []
+    sort_i = sortperm(all_orders) #Sort according to order
+
+    for ind in sort_i
+        if (all_eps[ind] > 0) && (all_eps[ind] <= 1) #If effectiveness is between 0 and 1
+                push!(HXtypes, all_types[ind])
+                push!(Mp_in, all_Mp[ind])
+                push!(ε_des, all_eps[ind])
+        end
+    end
+    nmis = size(pare)[3]
+            
+    for (i,HXtype) in enumerate(HXtypes)
+        #Create heat exchanger struct
+        HX = TASOPT.engine.make_HeatExchanger(nmis)
+        HX.type = HXtype
+        HX.order = i
+        HX.design_effectiveness = ε_des[i]
+        HX.design_Mach = Mp_in[i]
+        HX.added_mass_fraction = HX_add_mass
+        HX.maximum_length = HXmaxL
+        if i == 1 #For first HX
+            HX.has_recirculation = has_recirculation
+            HX.recirculation_temperature = recircT
+        end
+        #Add to engine heat exchangers
+        push!(engine.heat_exchangers, HX)
+    end
 end
 
-return TASOPT.aircraft(name, description,
-pari, parg, parm, para, pare)
+#create options object
+ac_options = TASOPT.Options(
+    opt_fuel = fueltype,
+    ifuel = ifuel,
+    has_wing_fuel = has_wing_fuel,
+    has_centerbox_fuel = has_centerbox_fuel,
+    has_fuselage_fuel = (nftanks>0),
+    
+    opt_engine_location = engloc,
+    opt_prop_sys_arch = propsys,
+    
+    is_doubledecker = is_doubledecker,
+
+    opt_move_wing = opt_move_wing
+)
+    
+#Create aircraft object
+ac = TASOPT.aircraft(name, description, ac_options,
+    parg, parm, para, pare, is_sized, 
+    fuselage, fuse_tank, wing, htail, vtail, engine, landing_gear)
+
+# ---------------------------------
+# Recalculate cabin length
+if calculate_cabin #Resize the cabin if desired, keeping deltas
+    @info "Fuselage and stabilizer layouts have been overwritten; deltas will be maintained."
+    update_fuse_for_pax!(ac) #update fuselage dimensions
+end
+
+return ac
 
 end
 

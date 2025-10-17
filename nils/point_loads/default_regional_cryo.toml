@@ -1,0 +1,394 @@
+[Wing]
+spar_box_x_c = 0.4
+x_wing_box = "55 ft"
+airfoil = "C.air"
+maxSpan = "100 ft"
+hweb_to_hbox = 0.75
+strut_local_velocity_ratio = 1.0
+outer_panel_taper_ratio = 0.225
+sweep = 26.0
+z_strut = "154 in"
+panel_break_location = 0.37
+box_width_to_chord = 0.5
+spanbreak_thickness_to_chord = 0.12
+center_box_halfspan = "4.30 ft"
+has_strut = false
+AR = 8.7
+strut_toc = 0.15
+inner_panel_taper_ratio = 0.7
+root_thickness_to_chord = 0.135
+z_wing = "-4.0 ft"
+
+    [Wing.Weightfracs]
+    spoilers = 0.02
+    leading_trailing_edge = 0.1
+    aileron = 0.04
+    flap = 0.2
+    slat = 0.1
+    ribs = 0.15
+    attachments = 0.03
+
+    [Wing.Aero]
+    strut_lowspeed_cdf = 0.0085
+    wing_tip_lift_rolloff_factor = -0.05
+    excrescence_drag_factor = 1.08
+    Re_ref = 2.0e7
+    lowspeed_cdf = 0.0085
+    strut_lowspeed_cdp = 0.0035
+    fuselage_lift_carryover_loss_factor = -0.3
+    Reynolds_scaling = -0.15
+    lowspeed_cdp = 0.0035
+    strut_Re_ref = 1.0e6
+    BLI_frac = 0.0
+
+        [Wing.Aero.Landing]
+        clt_clo = 0.5
+        cm_o = -0.35
+        cm_t = -0.15
+        cls_clo = 1.1
+        cm_s = -0.35
+
+        [Wing.Aero.Takeoff]
+        clt_clo = 0.6
+        cm_o = -0.2
+        cm_t = -0.02
+        cls_clo = 1.1
+        cm_s = -0.2
+
+        [Wing.Aero.Climb]
+        clt_clo = 1.25
+        cm_o = -0.06
+        cm_t = -0.06
+        cls_clo = 1.3
+        cm_s = -0.06
+
+["Aircraft Description"]
+name = "Regional LH2 Aircraft TASOPT Model"
+description = """    This model file describes a basic single-aisle regional aircraft powered by LH2.\r\n    This file is a modification of default_regional.toml under /example/defaults/,\r\n    implementing the same changes as were made in the cryo_input.toml file relative\r\n    to the default_input.toml file. This file was created and modified by Nils.\r\n    """
+aircraft_type = "Regional Aircraft"
+
+[Mission]
+N_missions = 1
+payload = ["96 pax"]
+exit_limit = 122
+weight_per_pax = "215.0 lbf"
+max_payload = "100 pax"
+range = "2200.0 nmi"
+fuel_reserves = 0.05
+Nlift = 3.0
+Vne = "280 kts"
+
+    [Mission.Descent]
+    descent_angle_bottom-of-descent = "-3.0 deg"
+    descent_angle_top-of-descent = "-2.5 deg"
+
+    [Mission.Takeoff]
+    CD_dead_engine = 0.5
+    max_balanced_field_length = "7450.0 ft"
+    rolling_resistance_coeff = 0.025
+    takeoff_T = 288.2
+    takeoff_obstacle_height = "35 ft"
+    braking_resistance_coeff = 0.35
+    CL_max_perp = 2.0
+    takeoff_alt = "0 ft"
+    Nland = 6.0
+    CD_spoilers = 0.1
+    CD_landing_gear = 0.015
+
+    [Mission.Climb]
+    minimum_top-of-climb_gradient = 0.015
+
+    [Mission.Cruise]
+    cruise_mach = 0.8
+    cruise_CL = 0.52
+    cruise_alt = "38500 ft"
+
+[Fuselage]
+cabin_pressure_altitude = "8000.0 ft"
+
+    [Fuselage.Aero]
+    CL_zero_fuse_moment = 0.185
+    excrescence_drag_factor = 1.1
+    wingbreak_fuse_overspeed = 0.01
+    fuse_moment_volume_deriv = "1450.0 ft3"
+    wingroot_fuse_overspeed = 0.0125
+    wingtip_fuse_overspeed = 0.003
+    BLI_frac = 0.0
+
+    [Fuselage.Weights]
+    window_per_length = 435.0
+    additional = 0.2
+    floor_weight_per_area = 60.0
+    stringer = 0.35
+    seat_weight_fraction = 0.1
+    HPE_sys_weight_fraction = 0.01
+    custom_weight_delta = 0.0
+    APU_weight_fraction = 0.035
+    add_payload_weight_fraction = 0.35
+    frame = 0.25
+    window_insul_per_area = 22.0
+    fixed_weight = "3000 lbf"
+
+    [Fuselage.Geometry]
+    HT_load_fuse_bend_relief = 0.4
+    a_nose = 1.7
+    x_cone_end = "117 ft"
+    x_end = "127 ft"
+    double_decker = false
+    tapers_to = "point"
+    VT_load_fuse_bend_relief = 0.7
+    x_pressure_shell_aft = "103 ft"
+    x_APU = "122 ft"
+    radius = "77.3 in"
+    y_critical_engines = "14.5 ft"
+    number_of_bubbles = 1
+    seat_pitch = "30 in"
+    front_seat_offset = "10 ft"
+    aisle_halfwidth = "10 in"
+    calculate_cabin_length = true
+    rear_seat_offset = "5 ft"
+    x_start_cylinder = "15 ft"
+    x_HPE_sys = "60ft"
+    seat_width = "19 in"
+    tailcone_taper = 0.3
+    x_engines = "47 ft"
+    y_offset = 0.0
+    dRadius = "13.0 in"
+    x_fixed_weight = "7ft"
+    seat_height = "45 in"
+    b_tail = 1.75
+    floor_depth = "6.0 in"
+    x_pressure_shell_fwd = "17 ft"
+    x_end_cylinder = "97 ft"
+    Nwebs = 0
+    floor_distance = "0 in"
+    x_nose_tip = "0 ft"
+
+[Stabilizers]
+lowspeed_cdf = 0.006
+excrescence_drag_factor = 1.08
+lowspeed_cdp = 0.003
+Re_ref = 1.0e7
+
+    [Stabilizers.Htail]
+    number_Htails = 2.0
+    opt_move_wing = "min_static_margin"
+    box_height_chord = 0.12
+    nacelle_lift_curve_slope = 3.8
+    downwash_factor = 0.55
+    AR_Htail = 5.8
+    sweep = 25.0
+    opt_sizing = "CLmax_fwdCG"
+    x_Htail = "115 ft"
+    SM_min = 0.15
+    box_width_to_chord = 0.5
+    added_weight_fraction = 0.3
+    Vh = 1.3
+    CD_Htail_from_center = 0.1
+    CLh_max = 2.0
+    multi_section = false
+    center_box_halfspan = "2.5 ft"
+    max_tail_download = -0.5
+    CLh_at_max_forward_CG = -0.6
+    CLh_spec = -0.02
+    web_height_hbox = 0.75
+    z_Htail = "4 ft"
+    taper = 0.25
+
+    [Stabilizers.Vtail]
+    x_Vtail = "113 ft"
+    box_height_chord = 0.12
+    Vv = 0.12
+    CLv_at_engine_out = 0.5
+    number_Vtails = 1.0
+    sweep = 25.0
+    opt_sizing = "fixed_Vv"
+    box_width_to_chord = 0.5
+    added_weight_fraction = 0.4
+    center_box_halfspan = 0.0
+    web_height_hbox = 0.75
+    CLv_max = 2.6
+    AR_Vtail = 2.0
+    taper = 0.3
+
+[Fuel]
+fuel_type = "LH2"
+fuel_in_wing = false
+fuel_usability_factor = 0.9
+fuel_in_wingcen = false
+fuel_enthalpy_vaporization = 0.0
+
+    [Fuel.Storage]
+    additional_mass_fraction = 0.25
+    pressure_rise_factor = 2.0
+    cruise_boiloff_rate = 0.4
+    heat_leak_factor = 1.3
+    inner_vessel_support_angle = "80 deg"
+    inner_vessel_material = "Al-2219-T87"
+    insulation_material = ["polyurethane32", "polyurethane32", "polyurethane32"]
+    outer_vessel_support_angles = ["45 deg", "135 deg"]
+    insulation_segment_base_thickness = [0.05, 0.05, 0.05]
+    hold_departure = "0 h"
+    tank_aspect_ratio = 2.0
+    weld_efficiency = 0.9
+    insulation_thicknesses_design_indices = [1, 2, 3]
+    tank_placement = "rear"
+    pressure_initial = "1.2 atm"
+    sizes_insulation = true
+    ullage_fraction = 0.05
+    pressure_venting = "2 atm"
+    hold_arrival = "0 h"
+    outer_vessel_material = "Al-2219-T87"
+    fuselage_clearance = "0.3 ft"
+
+[LandingGear]
+tailstrike_angle = "10 deg"
+LG_nose_wheels_per_strut = 2
+LG_nose_number_struts = 1
+x_nose_landing_gear = "14ft"
+LG_main_weight_fraction = 0.044
+wing_dihedral_angle = "6 deg"
+engine_ground_clearance = "23 in"
+LG_nose_weight_fraction = 0.011
+y_main_landing_gear_halfspan_fraction = 0.2
+landing_gear_model = "mass_fractions"
+x_main_landing_gear_offset = "1 ft"
+LG_main_wheels_per_strut = 2
+LG_main_number_struts = 2
+
+[Options]
+engine_location = "wing"
+prop_sys_arch = "TF"
+
+[Structures]
+caps_max_avg_stress = 1.1
+bending_max_avg_stress = 1.1
+bending_safety_factor = 1.5
+fuse_shell_modulus_ratio = 1.0
+stress_factor = 1.0
+caps_safety_factor = 1.5
+skin_safety_factor = 3.0
+floor_material = "TASOPT-Al"
+wing_tail_cap_density = 2700.0
+E_wing_spar_cap = "10e6 lbf/in2"
+strut_density = 2700.0
+sigma_caps = "30e3 lbf/in2"
+webs_max_avg_stress = 1.1
+E_struts = "10e6 lbf/in2"
+tau_webs = "20e3 lbf/in2"
+skin_material = "TASOPT-Al"
+floor_max_avg_stress = 1.1
+floor_safety_factor = 1.5
+wing_tail_web_density = 2700.0
+webs_material = "TASOPT-Al"
+caps_material = "TASOPT-Al"
+cone_max_avg_stress = 1.1
+cone_safety_factor = 2.0
+sigma_struts = "30e3 lbf/in2"
+webs_safety_factor = 1.5
+skin_max_avg_stress = 1.1
+cone_material = "TASOPT-Al"
+bending_material = "TASOPT-Al"
+
+[Propulsion]
+T_max_metal = 1250.0
+Tt4_frac_top_of_climb = 0.2
+Tt4_cruise = 1326.6
+core_in_clean_flow = true
+Tt4_takeoff = 1541.7
+Tt4_frac_bottom_of_climb = 0.2
+number_of_engines = 8
+
+    [Propulsion.Nacelles]
+    nacelle_pylon_wetted_area_ratio = 16.0
+    nacelle_local_velocity_ratio = 1.02
+
+    [Propulsion.Combustor]
+    combustion_efficiency = 0.985
+
+    [Propulsion.Weight]
+    pylon_weight_fraction = 0.1
+    engine_access_weight_fraction = 0.1
+    weight_model = "fitzgerald_basic"
+    custom_weight_delta = 5725.587409684663
+
+    [Propulsion.Turbomachinery]
+    M2 = 0.6
+    HTR_fan = 0.3
+    OPR = 28.0
+    HTR_HPC = 0.8
+    burner_PR = 0.94
+    core_nozzle_PR = 0.995
+    fan_eta_poly = 0.9
+    HPT_eta_poly = 0.9
+    Kf_polyeff = -0.077
+    high_spool_loss = 0.022
+    BPR = 5.0
+    LPC_PR = 8.0
+    diffuser_PR = 0.995
+    HTR_LPC = 0.6
+    HPC_eta_poly = 0.88
+    gear_ratio = 1.0
+    LPT_eta_poly = 0.9
+    Fan_PR = 1.6
+    FPR0 = 1.685
+    M25 = 0.6
+    LPC_eta_poly = 0.89
+    low_spool_loss = 0.01
+    fan_nozzle_PR = 0.98
+
+    [Propulsion.Offtakes]
+    Tt_offtake_air = 300.0
+    Low_spool_power_offtake_per_pax = 200.0
+    LPC_mass_offtake_per_pax = 0.008
+    LPC_mass_offtake_per_max_mass = 8.5e-6
+    Low_spool_power_offtake_per_max_mass = 0.5
+    Pt_offtake_air = 30000.0
+
+    [Propulsion.Nozzles.core_nozzle_area]
+    descentend = 1.0
+    rotation = 1.0
+    static = 1.0
+    cutback = 1.0
+    climbstart = 1.0
+    climbend = 1.0
+    descentstart = 1.0
+
+    [Propulsion.Nozzles.fan_nozzle_area]
+    descentend = 1.0
+    rotation = 1.0
+    static = 1.0
+    cutback = 1.0
+    climbstart = 1.0
+    climbend = 1.0
+    descentstart = 1.0
+
+    [Propulsion.HeatExchangers]
+    intercooler_inlet_mach = 0.1
+    intercooler_order = 2
+    precooler_order = 1
+    regenerative_order = 4
+    turbine_cooler_effectiveness = 0
+    precooler_inlet_mach = 0.1
+    turbine_cooler_inlet_mach = 0.02
+    core_inner_diameter = "0.2 m"
+    intercooler_effectiveness = 0
+    maximum_heat_exchanger_length = "0.25 m"
+    regenerative_effectiveness = 0.8
+    turbine_cooler_order = 3
+    regenerative_inlet_mach = 0.2
+    has_recirculation = true
+    recirculation_temperature = "200 K"
+    added_mass_frac = 1.0
+    precooler_effectiveness = 0
+
+    [Propulsion.Cooling]
+    hot_streak_T_allowance = 200.0
+    t_film_cooling = 0.3
+    HPT_efficiency_derivative_with_cooling = 0.0
+    St = 0.09
+    baseline_cooling_fraction = 0.0
+    e_film_cooling = 0.7
+    M41 = 0.9
+    M_turbine_blade_exit = 1.0
+    cooling_air_V_ratio = 0.3

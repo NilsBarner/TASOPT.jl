@@ -1,16 +1,16 @@
-# Example for a Payload-Range diagram
+# Payload-range diagram
+
+Once an `aircraft` model is satisfactory, its capabilities and performance can be evaluated over a range of mission conditions. For example:
 
 ![PayloadRangePlot](../assets/PayloadRangeExample.png)
 
-## Choosing a design mission
+## Using [`PayloadRange()`](@ref)
 
-To plot a payload-range diagram with a fleet of missions you must first load a model with >=1 non design mission
-
-Start by choosing a design mission. Your design mission should be what you want the second corner point in your Payload Range plot to be. Once you have a chosen a specific design range and payload weight (For eg: 3500 nmi and 195 pax) you can add it to the input toml file: `default_input.toml`
+To plot the payload-range diagram of an aircraft model with a fleet of missions, a design mission must be chosen, which will determine the second corner point in the diagram. The design mission should be reflected in the `input.toml` via the design range and payload weight (e.g., 3500 nmi and 195 pax):
 
 ```toml
 [Mission]
-    N_missions = 5 # Number of missions to be modeled (first mission is the design mission)
+    N_missions = 2 # Number of missions to be modeled (first mission is the design mission)
     pax = 195       # Number of passengers in each mission
     range = "3500.0 nmi" # Design Range + second mission range
                             #["3000.0 nmi", "500.0 nmi", "2500.0 nmi", "3550.0 nmi", "3734.0 nmi"] # Design Range + second mission range
@@ -18,113 +18,102 @@ Start by choosing a design mission. Your design mission should be what you want 
                             # includes luggage [lbm or lbf or kg or N] 
 ```
 
-## Julia script for Payload Range Diagram
-Start the script importing `TASOPT.jl`, `PyPlot` and `index.inc` and then loading the default `aircraft` model.
+After the aircraft is sized, [`PayloadRange()`](@ref) can be called:
 ```julia
-# Import modules
-using PyPlot
+#Use default model for payload-range diagram
 using TASOPT
-# you can optionally define
-# const tas = TASOPT 
-# to use as a shorthand
-include("../src/misc/index.inc")
-# import indices for calling parameters
+ac = load_default_model() 
+size_aircraft!(ac)
 
-# Load aircraft using default module
-ac = TASOPT.read_aircraft_model(joinpath(TASOPT.__TASOPTroot__, "../example/PRD_input.toml"))
-time_wsize = @elapsed size_aircraft!(ac)
+TASOPT.PayloadRange(ac)
 ```
 
-Initialize some variables for mission range and payloads
+In this approach, only one mission needs to be specified. TASOPT will copy the parameters from the sizing mission (e.g., takeoff altitude and temperature), and vary the payload and range to produce a payload-range diagram. 
+
+
+## Customizing a payload-range diagram
+
+For a more customizable diagram, a second mission may be specified and the following approach can be followed. First, initialize some variables for mission range and payloads:
 
 ```julia
-nmis = size(ac.parm)[2] # Get number of missions
-MAX_PAYLOAD = 230 * 215 * 4.448222 # Starting Payload, #Passengers * 215 lb * lb_to_N
-# Ranges:
-Range_arr_nmi = LinRange(100, 1000, nmis-1) # Starting range array (in nmi)
-Range_arr = Range_arr_nmi .* 1852.0 # Convert to SI units
-Max_range = Range_arr[nmis-1]
-curr_range = Range_arr[1]
-prev_range = 0.1
+# Make an array of ranges to plot
+RangeArray = ac.parm[imRange] * LinRange(0.1,1.2,Rpts)
+# Store constant values to compare later
+Wmax = ac.parg[igWMTO]
+Fuelmax = ac.parg[igWfmax]
+Wempty = ac.parg[igWMTO] - ac.parg[igWfuel] - ac.parg[igWpay]
+# Arrays for plotting
+RangesToPlot = []
+PayloadToPlot = []
+maxPay = ac.parm[imWpay ]
 ```
 
-## Initialize variables for mission iterations
+Then, evaluate the mission points with some logic shortcuts:
 
 ```julia
-NPSS = Base.Process
-NPSS_PT = true
-itermax = 15
-initeng = 0
-Ldebug = false
-saveOD = false
-SEC_B = false
-x_range = []
-y_payload = []
-y_Wemtpy = []
-```
+for Range = RangeArray
+    # Make an array of payloads to plot
+    Payloads = (maxPay) * LinRange(1, 0.1, Ppts)
+    ac.parm[imRange] = Range
+    for mWpay = Payloads
+        println("Checking for Range (nmi): ", convertDist(Range, "m", "nmi"), " and Pax = ", mWpay/convertForce(Wpax, "N", "lbf"))
+        ac.parm[imWpay ] = mWpay
+        # Try fly_mission! after setting new range and payload
+        try
+            TASOPT.fly_mission!(ac, 2)
+            # fly_mission! success: store maxPay, break loop
+            mWfuel = ac.parm[imWfuel,2]
+            WTO = Wempty + mWpay + mWfuel
 
-## Main iteration loop
-
-```julia
-while MAX_PAYLOAD >= 0
-    println("-----------------------")
-    println("Starting new set of missions, \n Ranges: ", Range_arr, "\n Payload: ", MAX_PAYLOAD./(215*4.448222))
-    try
-        # Set non design mission ranges and payloads
-        ac.parm[imRange, 2:5] .= Range_arr
-        ac.parm[imWpay, 2:5] .= MAX_PAYLOAD
-        # Analyze each mission
-        for mi in 2:size(ac.parm)[2]
-            prev_range = curr_range
-            curr_range = ac.parm[imRange, mi]
-            # Call TASOPT woper function
-            @views TASOPT.woper(ac.pari,ac.parg,ac.parm[:,mi:mi],ac.para[:,:,mi:mi],ac.pare[:,:,mi:mi], ac.para[:,:,1:1],ac.pare[:,:,1:1], itermax,initeng, NPSS_PT, NPSS)
-            # Check if mission fuel and MTO weight is greater than design fuel and MTO weight
-            if (ac.parm[imWfuel,mi] - ac.parg[igWfuel] > 1) || (ac.parm[imWTO,mi] - ac.parg[igWMTO] > 1 )
-                printstyled("Mission designed beyond capacity!", "\n"; color=:red)
-                println([ac.parg[igWfuel], ac.parm[imWfuel,mi], ac.parg[igWMTO], ac.parm[imWTO,mi]])
-                throw(UndefVarError([ac.parg[igWfuel], ac.parm[imWfuel,mi], ac.parg[igWMTO], ac.parm[imWTO,mi]]))
-            end
-
-            # Add to dataframes
-            append!(x_range, curr_range)
-            append!(y_payload, MAX_PAYLOAD)
-            append!(y_WTO,  ac.parm[imWTO,mi])
-
-            # If in section B of Payload Range plot, decrease payload by 1 passenger
-            if SEC_B
-                println("decreasing payload since Section B")
-                MAX_PAYLOAD = max(0, MAX_PAYLOAD-(1*215*4.448222))
-            end
-        end
-        println("PRD converged for all: Increasing Ranges")
-        prev_range = curr_range
-        Max_range = prev_range+ (500* 1852.0) #Increase range array by 500 nmi
+            if WTO > Wmax || mWfuel > Fuelmax || WTO < 0.0 || mWfuel < 0.0 
+                WTO = 0.0
+                mWfuel = 0.0
+                println("Max out error!")
+                if mWpay == 0
+                    println("Payload 0 and no convergence found")
+                    maxPay = 0
+                end
+            else
+                maxPay = mWpay
+                println("Converged - moving to next range...")
+                break
+            end     
         catch
-            println("PRD failed: Decreasing Payload and range")
-            prev_range = curr_range
-            Max_range = prev_range+ ((Max_range-prev_range)*0.75)
-            MAX_PAYLOAD = MAX_PAYLOAD-pax2N(5)
-            SEC_B = true
+            println("Not Converged - moving to lower payload...")      
         end
-    Range_arr = LinRange(prev_range, Max_range, nmis-1)
-    println("-----------------------")
+    end
+    append!(RangesToPlot, Range)
+    if OEW
+        append!(PayloadToPlot, maxPay+Wempty)
+    else
+        append!(PayloadToPlot, maxPay)
+    end
 end
 ```
 
-## Plot Payload Range diagram
+Plot as desired. `Plots.jl` is a recommended `matplotlib`-like library:
 
 ```julia
-using PyPlot
-figure()
-y_OEW = y_Wemtpy .+ y_payload
-plot(x_range ./ (1852.0*1000), y_OEW./ (4.448222* 1000), linestyle="-",  color="b", label="OEW + Payload ")
+using Plots
 
-xlabel("Range (1000 nmi)")
-ylabel("Weight (1000 lbs)")
-title("Payload Range Plot")
+#unit conversions
+x = RangesToPlot ./ (1000 * 1852.0) #to nmi
+y = PayloadToPlot ./ (9.8 * 1000) #to tonnes
 
-legend()
-grid()
-savefig("./PayloadRangeExample.png")
+# Create the plot
+p = plot(x, y,
+    label = "Payload",
+    linestyle = :solid, 
+    color = :blue,
+    xlabel = "Range [1000 nmi]",
+    ylabel = "Weight [tonnes]",
+    title = "Payload Range Plot",
+    grid = true,
+    dpi = 300,
+    size = (800, 500)
+)
+
+# Save the plot to a file
+savefig(p, "./PayloadRangeExample.png")
+
 ```
