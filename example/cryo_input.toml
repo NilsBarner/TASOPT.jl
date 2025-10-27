@@ -12,8 +12,8 @@ panel_break_location = 0.285
 box_width_to_chord = 0.5
 spanbreak_thickness_to_chord = 0.1266
 center_box_halfspan = "71.0 in"
-has_strut = false
-AR = 10.1
+has_strut = true
+AR = 15.1
 strut_toc = 0.15
 inner_panel_taper_ratio = 0.7
 root_thickness_to_chord = 0.1268
@@ -311,7 +311,7 @@ number_of_engines = 8
     engine_weight_delta = 0.0
     engine_access_weight_fraction = 0.3333333333333333
     weight_model = "fitzgerald_basic"
-    custom_weight_delta = 8937.816445243663
+    custom_weight_delta = 38113.24749273514
 
     [Propulsion.Turbomachinery]
     M2 = 0.6

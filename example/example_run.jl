@@ -35,5 +35,6 @@ summary(example_ac)
 using Plots
 # p = TASOPT.stickfig(example_ac)  # line commented by Nils
 p = TASOPT.stickfig(example_ac, show_grid = false, annotate_text = false, show_seats = false, fill_tank = false, annotate_sketch = false, annotate_length = false, annotate_group = false, airframe_colour = :black, engine_colour = :black)  # line added by Nils
-savefig(p, "Example.png")
+# savefig(p, "Example.png")
+savefig(p, "Example.svg")
 display(p)

@@ -1,7 +1,6 @@
 """
 This script calculates the changes in various airframe structural weight components
-as a resuls of applying point loads in different locations on the airframe.
-It is being called from different execution scripts to analyse various load cases.
+as a result of applying point loads in different locations and distributions on/across the airframe.
 """
 
 module PointLoadMethods
@@ -16,8 +15,8 @@ module PointLoadMethods
     include(TASOPT.__TASOPTindices__)
 
     function analyse_aircraft(
-        ac_segment::String, case_idx::Int, _ac_ref::Any, _Weng_single_ref::Any, indep_var::Any, fcs_loc::Any, N_eng::Int,
-        sigma_gt::Number, sigma_fc_wing_min::Number, sigma_fc_wing_max::Number, sigma_fc::Number,
+        ac_segment::String, _ac_ref::Any, _Weng_single_ref::Any, fcs_loc::Any, N_eng::Int,
+        sigma_gt::Number, sigma_fc_wing_max::Number, sigma_fc::Number, wing_frac::Number,
     )
 
         # Size reference aircraft if not provided (only needed for case 5)
@@ -27,40 +26,25 @@ module PointLoadMethods
             ac_ref, Weng_single_ref = _ac_ref, _Weng_single_ref
         end
 
-        # Calculate FCS weight limits
-        W_fc_wing_min = Weng_single_ref * sigma_gt / sigma_fc_wing_max
-        W_fc_wing_max = Weng_single_ref * sigma_gt / sigma_fc_wing_min
+        ###
+
+        # Define wing and fuselage point loads
+
         W_fc = Weng_single_ref * sigma_gt / sigma_fc
 
-        # Set point loads by case
-        if in(case_idx, (1, 61))
-            W_fc = indep_var
-            W_fc_wing = W_fc
-            global Fz_point_fus = 0.0
-            global Fz_point_wing = -(W_fc_wing - Weng_single_ref)  # -ve
-        elseif in(case_idx, (21, 22, 621, 622))
-            W_fc = indep_var
-            W_fc_wing = W_fc_wing_min
-            W_fc_fus = W_fc - W_fc_wing_min
-            global Fz_point_wing = -(W_fc_wing - Weng_single_ref)  # +ve
-            global Fz_point_fus = -W_fc_fus  # -ve
-        elseif in(case_idx, (31, 32, 631, 632))
-            W_fc_wing = indep_var
-            W_fc_fus = W_fc_wing_max - W_fc_wing
-            global Fz_point_fus = -W_fc_fus  # -ve
-            global Fz_point_wing = -(W_fc_wing - Weng_single_ref)  # -ve
-        elseif in(case_idx, (4, 64))
-            # fcs_loc = indep_var  # DO NOT USE as fcs_loc must be of type Dict for the logic in fuseW.jl to work
-            W_fc_wing = W_fc_wing_min
-            W_fc_fus = W_fc - W_fc_wing_min
-            global Fz_point_wing = -(W_fc_wing - Weng_single_ref)  # +ve
-            global Fz_point_fus = -W_fc_fus  # -ve
-        elseif in(case_idx, (5, 65))
-            N_eng = indep_var
-            W_fc_wing = W_fc
-            global Fz_point_fus = 0.0
-            global Fz_point_wing = -(W_fc_wing - Weng_single_ref)  # -ve
-        end
+        sigma_fc_wing = sigma_fc_wing_max - wing_frac * (sigma_fc_wing_max - sigma_fc)
+        W_fc_wing = Weng_single_ref * sigma_gt / sigma_fc_wing
+
+        W_fc_fus = W_fc - W_fc_wing
+
+        Fz_point_fus = -W_fc_fus  # -ve
+        Fz_point_wing = -(W_fc_wing - Weng_single_ref)  # -ve
+
+        # Debug print statements
+        # println("W_fc_wing, W_fc: ", W_fc_wing, ", ", W_fc)
+        # println("Fz_point_wing, Fz_point_fus: ", Fz_point_wing, ", ", Fz_point_fus)
+
+        ###
 
         # Write engine point loads to .toml file
         if ac_segment == "narrowbody"

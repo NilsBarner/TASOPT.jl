@@ -29,6 +29,7 @@ using .PointLoadMethods
 
 ###
 
+# Top-level settings
 ac_segment = "narrowbody"  # "narrowbody" or "regional"
 N_points = 2
 
@@ -61,9 +62,9 @@ W_fc_max = Weng_single_ref * sigma_gt / sigma_fc_min
 # case_idx_list = [1, 21, 22]
 # case_idx_list = [31, 32]
 # case_idx_list = [4]
-# case_idx_list = [5]
+case_idx_list = [5]
 # case_idx_list = [1, 61]
-case_idx_list = [1, 21, 22, 31, 32, 4, 5, 61, 621, 622, 631, 632, 64, 65]
+# case_idx_list = [1, 21, 22, 31, 32, 4, 5, 61, 621, 622, 631, 632, 64, 65]
 
 result_dict = Dict(
     i => Dict(
@@ -145,15 +146,17 @@ for (h, case_idx) in enumerate(case_idx_list)
         # try  # FOR DEBUGGING, comment try-catch block
 
         # Size aircraft
+        sigma_fc = sigma_fc_min  # consider heaviest FCS when sigma_fc not indep_var
         global ac, ac_ref = PointLoadMethods.analyse_aircraft(
             ac_segment, case_idx, _ac_ref, _Weng_single_ref, indep_var, fcs_loc, N_eng,
-            sigma_gt, sigma_fc_wing_min, sigma_fc_wing_max, sigma_fc_min, sigma_fc_max
+            sigma_gt, sigma_fc_wing_min, sigma_fc_wing_max, sigma_fc,
         )  # return ac_ref too as varies if N_eng for case 5
 
         # Push values to output lists
         push!(ac_list, ac)
         Wpointload_fuselage = sum(-point_load.force[3] for point_load in ac.fuselage.point_loads)
         push!(Wpointload_fuselage_list, Wpointload_fuselage)
+        # println("Wpointload_fuselage: ", Wpointload_fuselage)  # NILS: this was added on 20.10.2025 to check correct implementation of fuselage point load
 
         # catch e
 
@@ -170,6 +173,8 @@ for (h, case_idx) in enumerate(case_idx_list)
     result_dict[case_idx]["Wpointload_fuselage"] = Wpointload_fuselage_list
 
 end
+
+# error("message")  # NILS: stop here for debugging
 
 ### Plotting
 

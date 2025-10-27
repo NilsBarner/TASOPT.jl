@@ -8,7 +8,7 @@
 like [`plot_details`](@ref) to create summary plots to track progress of optimization
 or present results.
 """
-function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16, 
+function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16, framestyle = :axes,  # https://docs.juliaplots.org/dev/gallery/gr/generated/gr-ref034/
     annotate_text = true, annotate_length = true, annotate_group = true, show_grid = false,
     alpha = 1.0, show_seats = true, fill_tank = true, annotate_sketch = true, airframe_colour = :black, engine_colour = :red)  # arguments added by Nils
 
@@ -319,17 +319,18 @@ function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16,
             grid = show_grid,
             show=true,
             aspect_ratio=:equal,
+            framestyle = framestyle,
             margin=4mm
             )
     end
     
     # Plot wing (upper and lower surfaces)
-    plot!(plot_obj, xw, yw, label = "", color = airframe_colour, alpha = alpha)
-    plot!(plot_obj, xw, -yw, label = "", color = airframe_colour, alpha = alpha)
+    plot!(plot_obj, xw, yw, label = "", color = airframe_colour, alpha = alpha, linewidth = 2.0)
+    plot!(plot_obj, xw, -yw, label = "", color = airframe_colour, alpha = alpha, linewidth = 2.0)
 
     # Panel break (alpha transparency and line width)
-    plot!(plot_obj, xw[[2, 5]], yw[[2, 5]], label = "", color = airframe_colour, linewidth = 1.0, alpha = 0.5 * alpha)
-    plot!(plot_obj, xw[[2, 5]], -yw[[2, 5]], label = "", color = airframe_colour, linewidth = 1.0, alpha = 0.5 * alpha)
+    plot!(plot_obj, xw[[2, 5]], yw[[2, 5]], label = "", color = airframe_colour, linewidth = 2.0, alpha = 0.5 * alpha)
+    plot!(plot_obj, xw[[2, 5]], -yw[[2, 5]], label = "", color = airframe_colour, linewidth = 2.0, alpha = 0.5 * alpha)
     
     # Plot Tail (conditionally plot fill based on tailz value)
     tailz = htail.layout.z > 0 ? :back : 1
@@ -340,7 +341,7 @@ function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16,
     # Tail box (fill between xvt and yvt for the tail volume)
     xvt = [-0.4, -0.15, 0.2, 0.6].*vtail.layout.root_chord .+ vtail.layout.box_x
     yvt = hcat([0.0 ones(length(xvt) - 2)' .*(vtail.layout.root_chord*vtail.outboard.cross_section.thickness_to_chord/2) 0.0])[:]
-    plot!(plot_obj, xvt, -yvt, fillrange=yvt, label = "", color = airframe_colour, alpha = 0.8 * alpha, linecolor = airframe_colour, z_order = :front)
+    plot!(plot_obj, xvt, -yvt, fillrange=yvt, label = "", color = airframe_colour, alpha = 0.8 * alpha, linecolor = airframe_colour, z_order = :front, linewidth = 2.0)
     
     # Plot fuselage (fill with edge color)
     plot!(plot_obj, xf, -yf, label = "", color = airframe_colour, linewidth = 2.0, z_order = 5, alpha = alpha)
@@ -351,8 +352,8 @@ function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16,
     if !(ac.options.has_wing_fuel)
         for m in 1:nftanks
             # Tank outline
-            plot!(plot_obj, xt[m,:], yt[m,:], color=airframe_colour, lw=1.5, z_order=10, alpha = alpha)
-            plot!(plot_obj, xt[m,:], -yt[m,:], color=airframe_colour, lw=1.5, z_order=10, alpha = alpha)
+            plot!(plot_obj, xt[m,:], yt[m,:], color=airframe_colour, lw=2.0, z_order=10, alpha = alpha)
+            plot!(plot_obj, xt[m,:], -yt[m,:], color=airframe_colour, lw=2.0, z_order=10, alpha = alpha)
             
             # Filled area between tank outline
             if fill_tank == true  # added by Nils
@@ -373,8 +374,8 @@ function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16,
     end
 
     # Xshell2 plotting
-    plot!(plot_obj, xshell, yshell, color=airframe_colour, lw=1.5, z_order=10, alpha = alpha)
-    plot!(plot_obj, xshell, -yshell, color=airframe_colour, lw=1.5, z_order=10, alpha = alpha)
+    plot!(plot_obj, xshell, yshell, color=airframe_colour, lw=2.0, z_order=10, alpha = alpha)
+    plot!(plot_obj, xshell, -yshell, color=airframe_colour, lw=2.0, z_order=10, alpha = alpha)
 
     # Plot Engines
     D = parg[igdaftfan]
@@ -383,10 +384,10 @@ function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16,
 
     # Aft fan outline
     plot!(plot_obj, [x, x, x + lnace, x + lnace, x], [D / 8, D / 8 + D, D / 8 + D * 3 / 4, D / 8 + D / 4, D / 8],
-        lw=1.5, color=engine_colour, z_order=:front, alpha = alpha)
+        lw=2.0, color=engine_colour, z_order=:front, alpha = alpha)
     plot!(plot_obj, [x, x, x + lnace, x + lnace, x], [-D / 8, -D / 8 - D, -D / 8 - D * 3 / 4, -D / 8 - D / 4, -D / 8],
-        lw=1.5, color=engine_colour, z_order=:front, alpha = alpha)
-    
+        lw=2.0, color=engine_colour, z_order=:front, alpha = alpha)
+
     D = parg[igdfan]
     neng = parg[igneng]
     lnace = parg[iglnace]
@@ -418,14 +419,14 @@ function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16,
     ylocations = vec(hcat([yi.-D/2, yi.+D/2, yi.+D/3, yi.-D/3, yi.-D/2]...))
     
     # Plot engine locations
-    # plot!(plot_obj, xlocations, ylocations, color=engine_colour, linewidth=1.5, alpha = alpha)
+    # plot!(plot_obj, xlocations, ylocations, color=engine_colour, linewidth=2.0, alpha = alpha)
 
     # Nils: I have commented the above line, which did not plot the individual nacelle polygons correctly,
     # and replaced it by the block of code below
     for (j, (xj, yj)) in enumerate(zip(xi, yi))
         xpoly = [xj, xj, xj + lnace, xj + lnace, xj]
         ypoly = [yj - D/2, yj + D/2, yj + D/3, yj - D/3, yj - D/2]
-        plot!(plot_obj, xpoly, ypoly, color=engine_colour, linewidth=1.5, z_order=:front, alpha = alpha)
+        plot!(plot_obj, xpoly, ypoly, color=engine_colour, linewidth=2.0, z_order=:front, alpha = alpha)
     end
 
     # Plot NP and annotate

@@ -33,7 +33,7 @@ summary(example_ac)
 # 5) Plot figures
 using Plots
 p = TASOPT.stickfig(example_ac)
-savefig(p, "Example.png")
+# savefig(p, "Example.png")
 
 ###
 
