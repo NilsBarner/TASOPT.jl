@@ -21,6 +21,7 @@ using Plots, StatsPlots, Plots.PlotMeasures
 #convenient directories
 const __TASOPTroot__ = @__DIR__
 const __TASOPTindices__ = joinpath(__TASOPTroot__,"data_structs/index.inc") #include(__TASOPTindices__) in REPL
+# const __TASOPTindices__ = joinpath(__TASOPTroot__,"misc/index.inc")  # NILS
 export __TASOPTroot__, __TASOPTindices__
 
 # Constants and array indices

@@ -77,6 +77,36 @@ See [Geometry](@ref geometry),  [Wing/Tail Structures](@ref wingtail), and Secti
 function wing_weights!(wing, po, gammat, gammas,
        Nload, We, neout, dyeout, neinn, dyeinn, sigfac, rhofuel; n_wings=2.0)
 
+    Wpointload = sum(-point_load.force[3] for point_load in wing.point_loads)  # NILS: modified to sum over all point loads ("-" sign accounts for positive z-direction being upwards, whereas weight is positive when force pointing downwards)
+
+    # NILS' logic for adding wing point load
+    ywingbreak = wing.layout.ηs * wing.layout.span / 2.0
+    Wpointloadout = 0.0
+    Wpointloadin = 0.0
+    dyWpointloadout = 0.0
+    dyWpointloadin = 0.0
+    for point_load in wing.point_loads
+        Wpointload = -point_load.force[3]
+        if point_load.r[2] isa Number
+            ypointload = point_load.r[2] * wing.layout.span / 2.0
+        elseif point_load.r[2] isa Dict
+            ypointload = point_load.r[2]["frac_span"] * wing.layout.span / 2.0
+        end
+        if ypointload > ywingbreak
+            Wpointloadout += Wpointload
+            dyWpointloadout += Wpointload * (ypointload - ywingbreak)
+        elseif ypointload <= ywingbreak
+            Wpointloadin += Wpointload
+            dyWpointloadin += Wpointload * (ypointload - ywingbreak)  # SIGN TO BE CHECKED
+        end
+    end
+
+    # println("Wpointloadin, Wpointloadout = ", Wpointloadin, Wpointloadout)
+
+    # NILS: place-holders (assume zero x-moment from point loads for now - TO BE INCLUDED)
+    dxWpointloadout = 0.0
+    dxWpointloadin = 0.0
+
     tauweb,sigstrut = wing.inboard.webs.material.τmax * sigfac, wing.strut.material.σmax * sigfac
 
     cosL = cosd(wing.layout.sweep)
@@ -99,9 +129,14 @@ function wing_weights!(wing, po, gammat, gammas,
     #     If neout = 0 this simplifies to Drela's version which assumes engine
     #     fixed at ηs locations only.
     wing.outboard.max_shear_load = (po * wing.layout.span / 4.0) * (gammas + gammat) * (1.0 - etas) +
-                                   dLt - Nload * wing.outboard.weight - Nload * neout * We
+                                   dLt - Nload * wing.outboard.weight - Nload * neout * We -
+                                   Nload * Wpointloadout  # NILS
     wing.outboard.moment = (po * wing.layout.span^2 / 24.0) * (gammas + 2.0 * gammat) * (1.0 - etas)^2 +
-                           dMt - Nload * wing.outboard.dyW - Nload * neout * We * dyeout
+                           dMt - Nload * wing.outboard.dyW - Nload * neout * We * dyeout -
+                           Nload * dyWpointloadout  # NILS
+
+    # println("Nload * neout * We, Nload * Wpointloadout = ", Nload * neout * We, " ", Nload * Wpointloadout)
+    # println("Nload * neout * We * dyeout, Nload * dyWpointloadout = ", Nload * neout * We * dyeout, " ", Nload * dyWpointloadout)
 
     #---- size strut-attach station at etas
     cs = wing.layout.root_chord*wing.inboard.λ
@@ -119,10 +154,15 @@ function wing_weights!(wing, po, gammat, gammas,
         # dyeinn allows engine to be in locations other than ηs
         So = wing.outboard.max_shear_load - Nload*neinn*We +
             0.25*po*wing.layout.span*(1.0+gammas)*(etas-etao) -
-            Nload*wing.inboard.weight
+            Nload*wing.inboard.weight -
+            Nload * Wpointloadin  # NILS
+        # println("Nload*neinn*We, Nload * Wpointloadin = ", Nload*neinn*We, " ", Nload * Wpointloadin)
         Mo = wing.outboard.moment + wing.outboard.max_shear_load*0.5*wing.layout.span*(etas-etao) +
             (1.0/24.0)*po*wing.layout.span^2*(1.0+2.0*gammas)*(etas-etao)^2 -
-            Nload*wing.inboard.dyW - Nload*neinn*We*dyeinn
+            Nload*wing.inboard.dyW - Nload*neinn*We*dyeinn -
+            Nload * dyWpointloadin  # NILS
+        # println("Nload*neinn*We*dyeinn, Nload * dyWpointloadin = ", Nload*neinn*We*dyeinn, " ", Nload * dyWpointloadin)
+        # println()
 
         #----- limit So,Mo to Ss,Ms, which might be needed with heavy outboard engine
         #-      (rules out negatively-tapered structure, deemed not feasible for downloads)
@@ -200,8 +240,8 @@ function wing_weights!(wing, po, gammat, gammas,
     dxWsinn = (wing.inboard.caps.ρ*Abcapi + wing.inboard.webs.ρ*Abwebi)*gee*dxVinn
     dxWsout = (wing.inboard.caps.ρ*Abcaps + wing.inboard.webs.ρ*Abwebs)*gee*dxVout
 
-    dyWsinn = (wing.inboard.caps.ρ*Abcapi + wing.inboard.webs.ρ*Abwebi)*gee*dyVinn
-    dyWsout = (wing.inboard.caps.ρ*Abcaps + wing.inboard.webs.ρ*Abwebs)*gee*dyVout
+    dyWsinn = (wing.inboard.caps.ρ*Abcapi + wing.inboard.webs.ρ*Abwebi)*gee*dyVinn + dyWpointloadin  # NILS: added last term (placed here as gets returned separately per section - compare with dxWsinn)
+    dyWsout = (wing.inboard.caps.ρ*Abcaps + wing.inboard.webs.ρ*Abwebs)*gee*dyVout + dyWpointloadout  # NILS: added first term (placed here as gets returned separately per section - compare with dxWsout)
 
 
     Abfueli= (Abfuelo + Abfuels*wing.inboard.λ^2)/(1.0+wing.inboard.λ^2)
@@ -209,6 +249,18 @@ function wing_weights!(wing, po, gammat, gammas,
     Wfcen   = rhofuel*Abfuelo *gee*Vcen
     Wfinn   = rhofuel*Abfueli *gee*Vinn
     Wfout   = rhofuel*Abfuels *gee*Vout
+
+    # NILS: calculate wing box volumes like
+    # in fuel weight calculations above
+    # NOTE: while the terms match those in
+    # equation (570) of tasopt.pdf, it seems
+    # odd that Abfuelo gets multiplied by Vcen
+    # and Abfuels by Vout -> perhaps a BUG???
+    if isdefined(wing, :center)
+        wing.center.volume = Abfuelo * Vcen  # NILS: undefined during first iteration
+    end
+    wing.inboard.volume = Abfueli * Vinn
+    wing.outboard.volume = Abfuels * Vout
 
     dxWfinn = rhofuel*Abfueli *gee*dxVinn
     dxWfout = rhofuel*Abfuels *gee*dxVout
@@ -232,10 +284,11 @@ function wing_weights!(wing, po, gammat, gammas,
     wing.outboard.webs.thickness = tbwebs
 
     fwadd = wing_additional_weight(wing)
-    Wwing = n_wings * (Wscen + Wsinn + Wsout) * (1.0 + fwadd)
-    wing.dxW = n_wings * (dxWsinn + dxWsout) * (1.0 + fwadd)
+    Wwing = n_wings * (Wscen + Wsinn + Wsout) * (1.0 + fwadd) + Wpointloadin + Wpointloadout  # NILS: added last two terms (placed here rather than with individual sections to avoid applying `* (1.0 + fwadd)` to point loads)
+    wing.dxW = n_wings * (dxWsinn + dxWsout) * (1.0 + fwadd) + dxWpointloadin + dxWpointloadout  # NILS: added last two terms (placed here rather than with individual sections to avoid applying `* (1.0 + fwadd)` to point loads)
+    # println("Wpointloadin + Wpointloadout = ", Wpointloadin + Wpointloadout)
 
-    return Wwing, Wscen, Wsinn, Wsout, dyWsinn, dyWsout, Wfcen, Wfinn, Wfout,  # Wscen added by Nils for plotting
+    return Wwing, Wscen, Wsinn, Wsout, dyWsinn, dyWsout, Wfcen, Wfinn, Wfout,  # Wscen added by NILS for plotting
     dxWfinn, dxWfout, dyWfinn, dyWfout, lsp
 
 end # wing_weights
@@ -342,3 +395,12 @@ A = (w - 2tweb)×(h - 2tcap)
 function calc_sparbox_internal_area(width, height, t_cap, t_web)
     return (width - 2*t_web)*(height - 2*t_cap)
 end  # function calc_internal_area
+
+"""
+    add_load!(wing::Wing, load::PointLoad)
+
+Adds a `PointLoad` to the `extra_loads` field of the `Wing` object.
+"""
+function add_wing_point_load!(wing::Wing, load::PointLoad)  # function added by NILS
+    push!(wing.point_loads, load)
+end  # function add_wing_point_load!

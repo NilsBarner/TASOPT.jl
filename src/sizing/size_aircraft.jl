@@ -357,7 +357,8 @@ function _size_aircraft!(ac; itermax=35,
 
     @inbounds for iterw = 1:itermax
         if iterw == itermax
-            @warn "Reached max iterations in weight sizing loop!"
+            # @warn "Reached max iterations in weight sizing loop!"
+            error("Reached max iterations in weight sizing loop!")  # NILS converted this into an error
         end
 
         # Set relaxation factor
@@ -419,7 +420,7 @@ function _size_aircraft!(ac; itermax=35,
             tank_placement = ""
             xftank_fuse = 0.0
             Wftank_single = 0.0
-            Waftfuel = 0.0   # line added by Nils (bug in repo, causing error when engine_location = "fuselage")
+            Waftfuel = 0.0   # line added by NILS (bug in repo, causing error when engine_location = "fuselage")
         end
         #Note that fuselage is sized for a maximum payload weight in off-design missions
         parg[igcabVol] = fusew!(fuse, Nland, Wpaymax, Wengtail, 
@@ -537,7 +538,7 @@ function _size_aircraft!(ac; itermax=35,
         rhofuel = !(options.has_wing_fuel) ? 0.0 : parg[igrhofuel]
 
         # Call wing_weights function
-        Wwing,Wscen,Wsinn,Wsout,  # Wscen added by Nils for plotting
+        Wwing,Wscen,Wsinn,Wsout,  # Wscen added by NILS for plotting
         dyWsinn,dyWsout,
         Wfcen,Wfinn,Wfout,
         dxWfinn,dxWfout,
@@ -576,7 +577,7 @@ function _size_aircraft!(ac; itermax=35,
         wing.inboard.dyW = dyWsinn * (1.0 + fwadd) + rfmax * dyWfinn
         wing.outboard.dyW = dyWsout * (1.0 + fwadd) + rfmax * dyWfout
 
-        wing.center.weight = Wscen * (1.0 + fwadd) + rfmax * Wfcen  # line added by Nils for plotting
+        wing.center.weight = Wscen * (1.0 + fwadd) + rfmax * Wfcen  # line added by NILS for plotting
 
         #TODO: No reason why above lines shouldnt be inside wing_weights
         # -------------------------------
@@ -847,7 +848,7 @@ function _size_aircraft!(ac; itermax=35,
 
     end
 
-    ## Print statements added by Nils after weight-loop convergence reached
+    ## Print statements added by NILS after weight-loop convergence reached
 
     # println(Wwing, " ", Wscen, " ", Wsinn, " ", Wsout, " ", Wfcen, " ", Wfinn, " ", Wfout)
     # println(ac.wing.weight, " ", wing.center.weight, " ", wing.inboard.weight, " ", wing.outboard.weight)
@@ -892,7 +893,8 @@ function _size_aircraft!(ac; itermax=35,
 
     #Check if all engine points have converged
     if check_engine_convergence_failure(pare)
-        @warn "Some engine points did not converge"
+        # @warn "Some engine points did not converge"
+        error("Some engine points did not converge")  # NILS converted this into an error
     end
     #Warn user if HX effectiveness is overwritten
     check_HX_overwriting(engine.heat_exchangers) 
@@ -940,6 +942,8 @@ function update_WMTO!(ac, rlx)
     flgmain = landing_gear.main_gear.weight.W / WMTO
     ftesys = parg[igWtesys] / WMTO
     ftank = parg[igWftank] / WMTO
+
+    # println("fwing = $fwing, fstrut = $fstrut, fhtail = $fhtail, fvtail = $fvtail, feng = $feng, ffuel = $ffuel, flgnose = $flgnose, flgmain = $flgmain, ftank = $ftank, ftesys = $ftesys")  # NILS
 
     fsum = fwing + fstrut + fhtail + fvtail + feng + ffuel + fuse.HPE_sys.W +
            flgnose + flgmain + ftank + ftesys

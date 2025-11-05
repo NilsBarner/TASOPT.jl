@@ -1,4 +1,5 @@
 [Wing]
+TR_scale = 1.0
 spar_box_x_c = 0.4
 x_wing_box = "57 ft"
 airfoil = "C.air"
@@ -6,14 +7,15 @@ maxSpan = "117.5 ft"
 hweb_to_hbox = 0.75
 strut_local_velocity_ratio = 1.0
 outer_panel_taper_ratio = 0.25
+tdivc_scale = 1.0
 sweep = 26.0
 z_strut = "154 in"
 panel_break_location = 0.285
 box_width_to_chord = 0.5
 spanbreak_thickness_to_chord = 0.1266
 center_box_halfspan = "71.0 in"
-has_strut = true
-AR = 15.1
+has_strut = false
+AR = 10.1
 strut_toc = 0.15
 inner_panel_taper_ratio = 0.7
 root_thickness_to_chord = 0.1268
@@ -104,6 +106,8 @@ Vne = "280 kts"
 
 [Fuselage]
 cabin_pressure_altitude = "8000.0 ft"
+l_fcs_fuselage = 4.0
+fcs_fuselage_location = 1.0
 
     [Fuselage.Aero]
     CL_zero_fuse_moment = 0.185
@@ -120,8 +124,8 @@ cabin_pressure_altitude = "8000.0 ft"
     floor_weight_per_area = 60.0
     stringer = 0.35
     seat_weight_fraction = 0.1
-    custom_weight_delta = 0.0
     HPE_sys_weight_fraction = 0.01
+    custom_weight_delta = 0.0
     APU_weight_fraction = 0.035
     add_payload_weight_fraction = 0.35
     frame = 0.25
@@ -138,7 +142,7 @@ cabin_pressure_altitude = "8000.0 ft"
     VT_load_fuse_bend_relief = 0.7
     x_pressure_shell_aft = "102 ft"
     x_APU = "120 ft"
-    radius = "100 in"
+    radius = 3.302
     y_critical_engines = "16 ft"
     front_seat_offset = "10 ft"
     seat_pitch = "30 in"
@@ -152,7 +156,7 @@ cabin_pressure_altitude = "8000.0 ft"
     x_engines = "52 ft"
     y_offset = 0.0
     dRadius = "15 in"
-    unit_load_device = "LD3"
+    unit_load_device = "LD3-45"
     min_top_cabin_height = "2 m"
     x_fixed_weight = "7ft"
     seat_height = "45 in"
@@ -160,6 +164,7 @@ cabin_pressure_altitude = "8000.0 ft"
     floor_depth = "5.0 in"
     x_pressure_shell_fwd = "17 ft"
     x_end_cylinder = "97 ft"
+    theta_floor = 0.0
     Nwebs = 1
     floor_distance = "0 in"
     x_nose_tip = "0 ft"
@@ -179,8 +184,8 @@ Re_ref = 1.0e7
     AR_Htail = 6.0
     sweep = 26.0
     opt_sizing = "fixed_Vh"
-    x_Htail = "114.5 ft"
     SM_min = 0.05
+    x_Htail = "114.5 ft"
     box_width_to_chord = 0.5
     added_weight_fraction = 0.3
     Vh = 1.45
@@ -297,7 +302,7 @@ Tt4_cruise = 1587.0
 core_in_clean_flow = true
 Tt4_takeoff = 1833.0
 Tt4_frac_bottom_of_climb = 0.2
-number_of_engines = 8
+number_of_engines = 2
 
     [Propulsion.Nacelles]
     nacelle_pylon_wetted_area_ratio = 16.0
@@ -311,7 +316,7 @@ number_of_engines = 8
     engine_weight_delta = 0.0
     engine_access_weight_fraction = 0.3333333333333333
     weight_model = "fitzgerald_basic"
-    custom_weight_delta = 38113.24749273514
+    custom_weight_delta = 0.0
 
     [Propulsion.Turbomachinery]
     M2 = 0.6
@@ -347,22 +352,22 @@ number_of_engines = 8
     Pt_offtake_air = 30000.0
 
     [Propulsion.Nozzles.core_nozzle_area]
-    descentend = 1.0
+    descentstart = 1.0
     rotation = 1.0
     static = 1.0
     cutback = 1.0
     climbstart = 1.0
     climbend = 1.0
-    descentstart = 1.0
+    descentend = 1.0
 
     [Propulsion.Nozzles.fan_nozzle_area]
-    descentend = 1.0
+    descentstart = 1.0
     rotation = 1.0
     static = 1.0
     cutback = 1.0
     climbstart = 1.0
     climbend = 1.0
-    descentstart = 1.0
+    descentend = 1.0
 
     [Propulsion.HeatExchangers]
     intercooler_inlet_mach = 0.1

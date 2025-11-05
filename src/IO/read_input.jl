@@ -13,7 +13,7 @@ saving as an aircraft model file)
 function read_input(k::String, dict::AbstractDict=data, 
     default_dict::AbstractDict = default)
 
-    get!(dict, k) do 
+    get!(dict, k) do
         if k in keys(default_dict)
             println("\n")
             @info """$k not found in user specified input file. 
@@ -368,6 +368,13 @@ readgeom(x) = read_input(x, geom, dgeom)
     fuselage.layout.x_end = Distance(readgeom("x_end")) 
     fuselage.layout.l_cabin_cylinder = fuselage.layout.x_end_cylinder - fuselage.layout.x_start_cylinder
 
+    readfuse(x) = read_input(x, fuse, dfuse)  # NILS
+    # parg[igVfcsfus] = readfuse("V_fcs_fuselage")  # NILS
+    parg[iglfcsfus] = readfuse("l_fcs_fuselage")  # NILS
+    parg[igfcsfusloc] = readfuse("fcs_fuselage_location")  # NILS
+    parg[igthetafloor] = Angle(readgeom("theta_floor")) * pi / 180  # NILS
+    fuselage.cabin.unit_load_device = readgeom("unit_load_device")  # NILS (I need this for single-decker too)
+
 
 aero = read_input("Aero", fuse, dfuse)
 daero = dfuse["Aero"]
@@ -522,8 +529,8 @@ readwing(x) = read_input(x, wing_i, dwing)
     wing.layout.AR = readwing("AR")
     wing.layout.max_span = Distance(readwing("maxSpan"))
 
-    wing.inboard.λ = readwing("inner_panel_taper_ratio")
-    wing.outboard.λ = readwing("outer_panel_taper_ratio")
+    wing.inboard.λ = readwing("inner_panel_taper_ratio") * readwing("TR_scale")  # scaling factor added by NILS
+    wing.outboard.λ = readwing("outer_panel_taper_ratio") * readwing("TR_scale")  # scaling factor added by NILS
     wing.layout.ηs    = readwing("panel_break_location")
     if !(0 ≤ wing.layout.ηs ≤ 1.0)
         @warn "Wing span break location input was $(wing.layout.ηs); ηs must be 0 ≤ ηs ≤ 1.0"
@@ -539,8 +546,8 @@ readwing(x) = read_input(x, wing_i, dwing)
     wing.inboard.cross_section.width_to_chord  = readwing("box_width_to_chord")
     wing.outboard.cross_section.width_to_chord  = readwing("box_width_to_chord")
    
-    wing.inboard.cross_section.thickness_to_chord = readwing("root_thickness_to_chord")
-    wing.outboard.cross_section.thickness_to_chord = readwing("spanbreak_thickness_to_chord")
+    wing.inboard.cross_section.thickness_to_chord = readwing("root_thickness_to_chord") * readwing("tdivc_scale")  # scaling factor added by NILS
+    wing.outboard.cross_section.thickness_to_chord = readwing("spanbreak_thickness_to_chord") * readwing("tdivc_scale")  # scaling factor added by NILS
     
     wing.inboard.cross_section.web_to_box_height  = readwing("hweb_to_hbox")
     wing.outboard.cross_section.web_to_box_height = readwing("hweb_to_hbox")
@@ -550,6 +557,8 @@ readwing(x) = read_input(x, wing_i, dwing)
     wing.layout.z = Distance(readwing("z_wing"))
 
     parg[igdxeng2wbox] = wing.layout.box_x - parg[igxeng] #TODO add this as a function of wing
+
+    # parg[igVfcswing] = readwing("V_fcs_wing")  # NILS
 
     ## Strut details only used if has_strut is true
     if wing.has_strut
@@ -827,6 +836,7 @@ readprop(x) = read_input(x, prop, dprop)
     parg[igTmetal] = Temp.(readprop("T_max_metal"))
     parg[igfTt4CL1] = readprop("Tt4_frac_bottom_of_climb")
     parg[igfTt4CLn] = readprop("Tt4_frac_top_of_climb")
+    # parg[igVfcsnac] = readprop("V_fcs_nacelle")  # NILS
 
     pare[ieTt4, :, :] .= transpose(Temp.(readprop("Tt4_cruise"))) #transpose for proper broadcasting
 
@@ -1042,8 +1052,8 @@ if compare_strings(propsys,"tf")
     engineweight! = tfweightwrap!
 
     # Add custom engine weight increment
-    custom_weight_delta = read_input("custom_weight_delta", weight, dweight)  # line added by Nils
-    enginemodel = TASOPT.engine.TurbofanModel(modelname, enginecalc!, engineweightname, engineweight!, eng_has_BLI_cores, custom_weight_delta)  # last argument added by Nils
+    custom_weight_delta = read_input("custom_weight_delta", weight, dweight)  # line added by NILS
+    enginemodel = TASOPT.engine.TurbofanModel(modelname, enginecalc!, engineweightname, engineweight!, eng_has_BLI_cores, custom_weight_delta)  # last argument added by NILS
     engdata = TASOPT.engine.EmptyData()
 elseif compare_strings(propsys,"fuel_cell_with_ducted_fan")
     modelname = lowercase(propsys)

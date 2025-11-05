@@ -15,7 +15,7 @@ from shapely import Polygon
 from matplotlib_custom_settings import *
 
 # xlsx = pd.ExcelFile(os.path.join(os.getcwd(), 'point_load_study_results_narrowbody.xlsx'))
-xlsx = pd.ExcelFile(os.path.join(os.getcwd(), 'point_load_study_results_regional.xlsx'))
+xlsx = pd.ExcelFile(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'mass', 'point_load_study_results_regional.xlsx'))
 
 sheet_dict = {}
 for sheet_name in xlsx.sheet_names:

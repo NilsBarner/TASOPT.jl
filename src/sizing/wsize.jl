@@ -22,6 +22,8 @@ function wsize(pari, parg, parm, para, pare,
     itermax, wrlx1, wrlx2, wrlx3,
     initwgt, initeng, iairf, Ldebug, printiter, saveODperf)
 
+    # NILS: this function is the predecessor of `size_aircraft!() (see header of `size_aircraft!()) and no longer used
+
     time_propsys = 0.0
 
     if pari[iiengmodel] == 0
@@ -628,7 +630,7 @@ function wsize(pari, parg, parm, para, pare,
             #Current weight started from previously converged solution
             itrlx = 2
         end
-
+        
         if (iterw <= itrlx)
             # under-relax first n itrlx iterations
             rlx = wrlx1

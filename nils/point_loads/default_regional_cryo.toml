@@ -1,4 +1,5 @@
 [Wing]
+TR_scale = 1.0
 spar_box_x_c = 0.4
 x_wing_box = "55 ft"
 airfoil = "C.air"
@@ -6,6 +7,7 @@ maxSpan = "100 ft"
 hweb_to_hbox = 0.75
 strut_local_velocity_ratio = 1.0
 outer_panel_taper_ratio = 0.225
+tdivc_scale = 1.0
 sweep = 26.0
 z_strut = "154 in"
 panel_break_location = 0.37
@@ -13,7 +15,7 @@ box_width_to_chord = 0.5
 spanbreak_thickness_to_chord = 0.12
 center_box_halfspan = "4.30 ft"
 has_strut = false
-AR = 8.7
+AR = 10.1
 strut_toc = 0.15
 inner_panel_taper_ratio = 0.7
 root_thickness_to_chord = 0.135
@@ -105,6 +107,8 @@ Vne = "280 kts"
 
 [Fuselage]
 cabin_pressure_altitude = "8000.0 ft"
+l_fcs_fuselage = 0.0
+fcs_fuselage_location = 1.0
 
     [Fuselage.Aero]
     CL_zero_fuse_moment = 0.185
@@ -139,7 +143,7 @@ cabin_pressure_altitude = "8000.0 ft"
     VT_load_fuse_bend_relief = 0.7
     x_pressure_shell_aft = "103 ft"
     x_APU = "122 ft"
-    radius = "77.3 in"
+    radius = "59.5 in"
     y_critical_engines = "14.5 ft"
     number_of_bubbles = 1
     seat_pitch = "30 in"
@@ -155,11 +159,13 @@ cabin_pressure_altitude = "8000.0 ft"
     y_offset = 0.0
     dRadius = "13.0 in"
     x_fixed_weight = "7ft"
+    unit_load_device = "LD3-45"
     seat_height = "45 in"
     b_tail = 1.75
     floor_depth = "6.0 in"
     x_pressure_shell_fwd = "17 ft"
     x_end_cylinder = "97 ft"
+    theta_floor = 0.0
     Nwebs = 0
     floor_distance = "0 in"
     x_nose_tip = "0 ft"
@@ -293,15 +299,25 @@ bending_material = "TASOPT-Al"
 [Propulsion]
 T_max_metal = 1250.0
 Tt4_frac_top_of_climb = 0.2
+V_fcs = 3636.3636363636365
 Tt4_cruise = 1326.6
 core_in_clean_flow = true
 Tt4_takeoff = 1541.7
 Tt4_frac_bottom_of_climb = 0.2
-number_of_engines = 8
+number_of_engines = 2
 
     [Propulsion.Nacelles]
     nacelle_pylon_wetted_area_ratio = 16.0
     nacelle_local_velocity_ratio = 1.02
+
+    [Propulsion.Combustor]
+    combustion_efficiency = 0.985
+
+    [Propulsion.Weight]
+    pylon_weight_fraction = 0.1
+    engine_access_weight_fraction = 0.1
+    weight_model = "fitzgerald_basic"
+    custom_weight_delta = 0.0
 
     [Propulsion.Turbomachinery]
     M2 = 0.6
@@ -327,15 +343,6 @@ number_of_engines = 8
     LPC_eta_poly = 0.89
     low_spool_loss = 0.01
     fan_nozzle_PR = 0.98
-
-    [Propulsion.Weight]
-    pylon_weight_fraction = 0.1
-    engine_access_weight_fraction = 0.1
-    weight_model = "fitzgerald_basic"
-    custom_weight_delta = 24426.70071878501
-
-    [Propulsion.Combustor]
-    combustion_efficiency = 0.985
 
     [Propulsion.Offtakes]
     Tt_offtake_air = 300.0

@@ -64,6 +64,8 @@ $TYPEDFIELDS
     weight::Float64 = 0 # make it a weight
     """Wing root moment contribution from wing weight section of engine [N m]"""
     dyW::Float64 = 0
+    """Volume [m^3]"""
+    volume::Float64 = 0  # added by NILS
 end
 
 @kwdef mutable struct TailSection <: AbstractWingSection

@@ -130,6 +130,8 @@ $TYPEDFIELDS
     opt_tapers_to::String = "point"
     """Length of cylindrical portion of cabin that contains payload [m]"""
     l_cabin_cylinder::Float64 = 0.0
+    """Longitudinal position of FCS centroid [m]"""
+    x_centroid_fcs::Float64 = 0.0  # NILS: added to log longitudinal location of FCS centroid
 end
 
 # Helper function to be able to simplify 

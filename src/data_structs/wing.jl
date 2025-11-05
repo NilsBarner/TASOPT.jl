@@ -97,6 +97,9 @@ $TYPEDFIELDS
     weight_frac_spoilers::Float64 = 0.0
     """Wing attachments weight fraction"""
     weight_frac_attachments::Float64 = 0.0
+
+    point_loads::Vector{structures.PointLoad} = structures.PointLoad[structures.PointLoad()]  # line added by NILS (vector approach with zero-force/zero-arm default ensures that, in wing_weights.jl, when summing over elements, default in position zero has no effect)
+
 end
 
 """
@@ -139,6 +142,8 @@ $TYPEDFIELDS
     CL_CLmax::Float64 = 0
     """Number of Tails"""
     ntails::Float64 = 0
+
+    point_loads::Vector{structures.PointLoad} = structures.PointLoad[structures.PointLoad()]  # NILS: had to be added as wing_weights.jl also used for horizontal and vertical tail, although no point loads applied there
 end
 
 function wing_additional_weight(wing::AbstractWing)

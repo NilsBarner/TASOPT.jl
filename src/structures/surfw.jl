@@ -100,6 +100,11 @@ function surfw(po,b,bs,bo,co,zs,
 	tauweb,sigcap,sigstrut,Ecap,Eweb,Gcap,Gweb,
 	rhoweb,rhocap,rhostrut,rhofuel)
 
+      # NILS: this file is no longer in use - search for "surfw" in GitHub repo
+      # and will find that gets called only from wsize.jl, which is no longer in use either
+      # (I left a comment there too). The functionality of this file has been replaced by
+      # wing_weights.jl.
+
       cosL = cos(sweep*pi/180)
       sinL = sin(sweep*pi/180)
 

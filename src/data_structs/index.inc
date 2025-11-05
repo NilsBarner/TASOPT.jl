@@ -179,7 +179,17 @@
 
       const igWfvent = 121
       const igWHXs = 122
-      const igtotal    = 122
+
+      const igVfcsnac = 123  # NILS
+      const igVfcswing = 124  # NILS
+      const igVfcsfus = 125  # NILS
+      const igfcsfusloc = 126  # NILS
+      const igVfcsavnacetot = 127  # NILS
+      const iglfcsfus = 128  # NILS
+      const igthetafloor = 129  # NILS
+      const igtotal = 129  # NILS: increased by 7
+
+      
 
 #---- indices for aero variables at each mission point
       const iaalt     =  1

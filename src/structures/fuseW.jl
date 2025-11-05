@@ -58,7 +58,7 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
       xwing,xwbox,cbox,
       xeng)
 
-      Wpointload = sum(-point_load.force[3] for point_load in fuse.point_loads)  # modified to sum over all point loads ("-" sign accounts for positive z-direction being upwards, whereas weight is positive when force pointing downwards)
+      Wpointload = sum(-point_load.force[3] for point_load in fuse.point_loads)  # NILS: modified to sum over all point loads ("-" sign accounts for positive z-direction being upwards, whereas weight is positive when force pointing downwards)
 
       layout = fuse.layout
 
@@ -83,7 +83,7 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
       xWseat = fuse.seat.W * x_cabin
       xWpadd = fuse.added_payload.W * x_cabin
       
-      # Nils' logic for adding fuselage point load depending on study case
+      # NILS' logic for adding fuselage point load depending on study case
       xWpointload = 0.0
       for point_load in fuse.point_loads
             Wpointload = -point_load.force[3]
@@ -132,7 +132,7 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
 #--------------------------------------------------------------------
 #--- lumped tail weight and location  
 #      (Weng=0 if there are no tail-mounted engines)
-      Wtail = Whtail + Wvtail + fuse.cone.weight.W + fuse.APU.W + Waftfuel + Wftank + Weng + Wpointload  # last term added by Nils
+      Wtail = Whtail + Wvtail + fuse.cone.weight.W + fuse.APU.W + Waftfuel + Wftank + Weng + Wpointload  # last term added by NILS
 
       xtail = (  xhtail*Whtail +
                xvtail*Wvtail +
@@ -140,7 +140,7 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
                xWapu + 
                xeng*Weng +
                xftankaft*(Waftfuel + Wftank) +
-               xWpointload  # line added by Nils
+               xWpointload  # line added by NILS
                ) / Wtail
 
 #--------------------------------------------------------------------
@@ -245,10 +245,10 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
       fuse.weight = fuse.fixed.W + fuse.APU.W + fuse.added_payload.W + fuse.seat.W +
              fuse.shell.weight.W + fuse.cone.weight.W + fuse.window.W + fuse.insulation.W + fuse.floor.weight.W+
              fuse.bendingmaterial_h.weight.W + fuse.bendingmaterial_v.weight.W +
-             Wpointload  # line added by Nils
+             Wpointload  # line added by NILS
 
       fuse.moment = xWfix + xWapu + xWpadd + xWseat+
-      xWpointload +  # line added by Nils
+      xWpointload +  # line added by NILS
       y_moment(fuse.shell.weight) + xWcone + y_moment(fuse.window) + y_moment(fuse.insulation) + xWfloor+
              xWhbend + xWvbend 
 
@@ -351,6 +351,6 @@ function size_tailcone(fuse::Fuselage, n_vertical_tails, L_vmax, b_v, λv)
 
 Adds a `PointLoad` to the `extra_loads` field of the `Fuselage` object.
 """
-function add_fus_point_load!(fuse::Fuselage, load::PointLoad)  # function added by Nils
+function add_fus_point_load!(fuse::Fuselage, load::PointLoad)  # function added by NILS
     push!(fuse.point_loads, load)
 end  # function add_fus_point_load!

@@ -53,6 +53,8 @@ params = {
     'ytick.major.width': hwidth,
     'ytick.major.size': length,
     'xtick.major.size': length,
+    'xtick.major.pad': 10,  # distance between x-tick and label (in points)
+    'ytick.major.pad': 10,  # distance between y-tick and label (in points)
     'xtick.direction': "in",
     'ytick.direction': "in",
     'xtick.top': True,
@@ -86,7 +88,13 @@ grey = (0.5, 0.5, 0.5); lgrey = (0.75, 0.75, 0.75);
 rob_blue_rgb = '#0072BD' # (0, 114, 189) # shade of blue of Rob's PowerPoint template
 whittle_blue_rgb = '#0BACD7' # (11, 172, 215) # shade of blue of Whittle logo
 
+# Colour palette from https://ons-design.notion.site/Colour-335407345de94442b2adccbaa0b0b6e6
 plt.rcParams['axes.prop_cycle'] = cycler('color', ['#206095', '#a8bd3a', '#871a5b', '#f66068', '#05341A', '#27a0cc', '#003c57', '#22d0b6', '#746cb1', '#A09FA0'])
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
+# Add margins around plot
+def add_margin(ax, m=0.05):
+    for a, s in [(ax.get_xlim, ax.set_xlim), (ax.get_ylim, ax.set_ylim)]:
+        lo, hi = a(); r = hi - lo; s(lo - m*r, hi + m*r)
 
-
+ 

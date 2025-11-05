@@ -10,7 +10,7 @@ or present results.
 """
 function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16, framestyle = :axes,  # https://docs.juliaplots.org/dev/gallery/gr/generated/gr-ref034/
     annotate_text = true, annotate_length = true, annotate_group = true, show_grid = false,
-    alpha = 1.0, show_seats = true, fill_tank = true, annotate_sketch = true, airframe_colour = :black, engine_colour = :red)  # arguments added by Nils
+    alpha = 1.0, show_seats = true, fill_tank = false, annotate_sketch = true, airframe_colour = :black, engine_colour = :red)  # arguments added by NILS
 
     #if aircraft is not sized, cannot plot
     if !ac.is_sized[1] 
@@ -356,7 +356,7 @@ function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16, framestyle = 
             plot!(plot_obj, xt[m,:], -yt[m,:], color=airframe_colour, lw=2.0, z_order=10, alpha = alpha)
             
             # Filled area between tank outline
-            if fill_tank == true  # added by Nils
+            if fill_tank == true  # added by NILS
                 plot!(xt[m, :], yt[m, :], fill_between=(-yt[m, :], yt[m, :]), color=:red, alpha=0.1 * alpha)
             end
 
@@ -367,7 +367,7 @@ function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16, framestyle = 
             elseif options.ifuel == 40
                 fuelname ="\$LH_2\$"
             end
-            if annotate_sketch == true  # added by Nils
+            if annotate_sketch == true  # added by NILS
                 annotate!(plot_obj, (xtanks[m], 0.0, text(fuelname, label_fs - 2.0, :center, :center)))
             end
         end
@@ -421,29 +421,30 @@ function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16, framestyle = 
     # Plot engine locations
     # plot!(plot_obj, xlocations, ylocations, color=engine_colour, linewidth=2.0, alpha = alpha)
 
-    # Nils: I have commented the above line, which did not plot the individual nacelle polygons correctly,
+    # NILS: I have commented the above line, which did not plot the individual nacelle polygons correctly,
     # and replaced it by the block of code below
     for (j, (xj, yj)) in enumerate(zip(xi, yi))
         xpoly = [xj, xj, xj + lnace, xj + lnace, xj]
         ypoly = [yj - D/2, yj + D/2, yj + D/3, yj - D/3, yj - D/2]
         plot!(plot_obj, xpoly, ypoly, color=engine_colour, linewidth=2.0, z_order=:front, alpha = alpha)
+        plot!(plot_obj, xpoly, -ypoly, color=engine_colour, linewidth=2.0, z_order=:front, alpha = alpha)
     end
 
     # Plot NP and annotate
     scatter!(plot_obj, [parg[igxNP]], [0.0], color=airframe_colour, marker=:circle, z_order=15, label="NP", alpha = alpha)
-    if annotate_sketch == true  # added by Nils
+    if annotate_sketch == true  # added by NILS
         annotate!(plot_obj, (parg[igxNP]+2, 0.5, text("NP", label_fs - 2.0, :center, :center, color=airframe_colour)))
     end
 
     # Annotate CG range
     plot!(plot_obj, [parg[igxCGfwd], parg[igxCGaft]], [0.0, 0.0], color=airframe_colour, lw=2.0, label="CG movement", alpha = alpha)  # Line between points
     scatter!(plot_obj, [parg[igxCGfwd], parg[igxCGaft]], [0.0, 0.0], marker=:vline, color=airframe_colour, alpha = alpha)                # End points
-    if annotate_sketch == true  # added by Nils
+    if annotate_sketch == true  # added by NILS
         annotate!(plot_obj, parg[igxCGfwd]-2, 0, text("CG", label_fs - 2.0, :center, :center))
     end
 
     # Show seats (single-deck case)
-    if !(options.is_doubledecker || show_seats == false)  # " && show_seats == true" added by Nils
+    if !(options.is_doubledecker || show_seats == false)  # " && show_seats == true" added by NILS
         xgrid = repeat(xseats, inner=length(yseats))
         ygrid = repeat(yseats, outer=length(xseats))
 
@@ -496,8 +497,8 @@ function stickfig(ac::aircraft; plot_obj = nothing, label_fs = 16, framestyle = 
     end
 
     # Set plot limits and labels
-    # ylims!(plot_obj, -1.2 * bmax / 2, 1.2 * bmax / 2)  # commented by Nils to avoid large wings going out of bounds
-    # xlims!(plot_obj, -5, maximum(xh)*1.1)  # commented by Nils to avoid long fuselages going out of bounds
+    # ylims!(plot_obj, -1.2 * bmax / 2, 1.2 * bmax / 2)  # commented by NILS to avoid large wings going out of bounds
+    # xlims!(plot_obj, -5, maximum(xh)*1.1)  # commented by NILS to avoid long fuselages going out of bounds
     xlabel!(plot_obj, "x [m]", fontsize=label_fs)
     ylabel!(plot_obj, "y [m]", fontsize=label_fs)
 

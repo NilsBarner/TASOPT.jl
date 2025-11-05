@@ -53,7 +53,7 @@ $TYPEDFIELDS
     added_payload::structures.Weight = structures.Weight()
     HPE_sys::structures.Weight = structures.Weight()
     fixed::structures.Weight = structures.Weight()
-    point_loads::Vector{structures.PointLoad} = structures.PointLoad[structures.PointLoad()]  # line added by Nils (vector approach with zero-force/zero-arm default ensures that, in fuseW.jl, when summing over elements, default in position zero has no effect)
+    point_loads::Vector{structures.PointLoad} = structures.PointLoad[structures.PointLoad()]  # line added by NILS (vector approach with zero-force/zero-arm default ensures that, in fuseW.jl, when summing over elements, default in position zero has no effect)
 
     # Misc properties
     """Number of decks in fuselage"""
