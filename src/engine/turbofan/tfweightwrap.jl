@@ -21,7 +21,7 @@ function tfweightwrap!(ac)
         
     custom_weight_delta = ac.engine.model.custom_weight_delta  # line added by NILS
     parg[igWeng] = Weng + custom_weight_delta  # second term added by NILS
-    # println("custom_weight_delta =", custom_weight_delta)
+    # println("custom_weight_delta INTERNAL =", custom_weight_delta)
     parg[igWebare] = Webare
     parg[igWnace] = Wnace
     parg[igWHXs] = W_HXs

@@ -1,0 +1,2 @@
+index,sigma_fcs,fcs_loc,radius,AR,tdivc_scale,N_eng,HTR_f,l_fcs,theta_floor,fcs_fuselage_location,has_strut,CDS,WMTO,Vol_wing,PFEI,seats_abreast,Vol_nacelle,y_centroid_wing,L_fuse,y_centroid_nacelles,span,x_centroid_fuse,Vol_fuse,length,P_prop_max
+0,0.0,NA,2.54,10.1,1.0,2,0.3,0.0,0.0,1.0,false,4.756101861078885,760643.064209552,23.836878518815233,1.017535447178612,7,0.8337333341454904,8.175701795697819,25.14600000000001,5.039887965230845,35.36763484372523,31.24200000000001,0.0,48.14196008569035,3.2009506694034673e7

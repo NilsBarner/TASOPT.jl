@@ -58,8 +58,6 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
       xwing,xwbox,cbox,
       xeng)
 
-      Wpointload = sum(-point_load.force[3] for point_load in fuse.point_loads)  # NILS: modified to sum over all point loads ("-" sign accounts for positive z-direction being upwards, whereas weight is positive when force pointing downwards)
-
       layout = fuse.layout
 
       Eskin = fuse.material.E #parg[igEcap]
@@ -83,18 +81,21 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
       xWseat = fuse.seat.W * x_cabin
       xWpadd = fuse.added_payload.W * x_cabin
       
-      # NILS' logic for adding fuselage point load depending on study case
+      # NILS: add point load(s) to fuselage
+      Wpointload = 0.0
       xWpointload = 0.0
       for point_load in fuse.point_loads
-            Wpointload = -point_load.force[3]
+            # Can pass a string (existing component location) ...
             if point_load.r[1] isa String
-                  if point_load.r[1] == "eng"
+                  if point_load.r[1] == "eng"  # engine
                         xpointload = xeng
-                  elseif point_load.r[1] == "apu"
+                  elseif point_load.r[1] == "apu"  # APU
                         xpointload = fuse.APU.x
                   end
+            # ... a number (m measured from nose) ...
             elseif point_load.r[1] isa Number
                   xpointload = point_load.r[1]
+            # ... or a dictionary (fraction of fuselage length)
             elseif point_load.r[1] isa Dict
                   if haskey(point_load.r[1], "frac_len")
                         xpointload = (
@@ -109,9 +110,11 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
             else
                   error("Unsupported type for point_load.r[1]")
             end
-            xWpointload += Wpointload * xpointload
+            Wpointload += -point_load.force[3]  # "-" sign accounts for positive z-direction being upwards, whereas weight is positive when force pointing downwards
+            xWpointload += -point_load.force[3] * xpointload
       end
-      
+      # println("Wpointload: ", Wpointload)  # test
+
 #--------------------------------------------------------------------
 #--- floor structural sizing
       P = (Wpay+fuse.seat.W) * Nland / fuse.n_decks #Total load is distributed across all decks

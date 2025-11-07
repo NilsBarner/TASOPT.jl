@@ -14,342 +14,764 @@ from shapely import Polygon
 
 from matplotlib_custom_settings import *
 
-xlsx = pd.ExcelFile(os.path.join(os.getcwd(), 'volume_results_narrowbody.xlsx'))
+# # xlsx = pd.ExcelFile(os.path.join(os.getcwd(), 'volume_results_narrowbody_291025_v1.xlsx'))
+# # xlsx = pd.ExcelFile(os.path.join(os.getcwd(), 'volume_results_narrowbody_fuselage.xlsx'))
+# # xlsx = pd.ExcelFile(os.path.join(os.getcwd(), 'volume_results_narrowbody_wing.xlsx'))
+# # xlsx = pd.ExcelFile(os.path.join(os.getcwd(), 'volume_results_narrowbody_nacelle.xlsx'))
+# xlsx = pd.ExcelFile(os.path.join(os.getcwd(), 'volume_results_narrowbody_all.xlsx'))
 
-sheet_dict = {}
-for sheet_name in xlsx.sheet_names:
-    sheet_dict[sheet_name] = pd.read_excel(xlsx, sheet_name=sheet_name)
+# sheet_dict = {}
+# for sheet_name in xlsx.sheet_names:
+#     sheet_dict[sheet_name] = pd.read_excel(xlsx, sheet_name=sheet_name)
+    
+df = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'volume_results_narrowbody_wing_newest.csv'))
+# df = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'volume_results_narrowbody_nacelle_newest.csv'))
+# df = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_fuselage_newest.csv'))
+
+# sys.exit()
 
 #%%
 
-df = sheet_dict['results']
+# df = sheet_dict['results']
 
+fcs_loc_unique = df["fcs_loc"].unique()
 radius_unique = np.sort(df["radius"].unique())
 AR_unique = np.sort(df["AR"].unique())
+tdivc_scale_unique = np.sort(df["tdivc_scale"].unique())
 N_eng_unique = np.sort(df["N_eng"].unique())
+HTR_f_unique = np.sort(df["HTR_f"].unique())
 Vspec_unique = np.sort(df["Vspec"].unique())
+fcs_fuselage_location_unique = np.sort(df["fcs_fuselage_location"].unique())
 
 # Create 2D coordinate grids
-A, B, C, D = np.meshgrid(radius_unique, AR_unique, N_eng_unique, Vspec_unique, indexing="ij")
+fcs_loc_grid, radius_grid, AR_grid, tdivc_scale_grid, N_eng_grid, HTR_f_grid, Vspec_grid, fcs_fuselage_location_grid = np.meshgrid(
+    fcs_loc_unique, radius_unique, AR_unique, tdivc_scale_unique, N_eng_unique, HTR_f_unique, Vspec_unique, fcs_fuselage_location_unique, indexing="ij"
+)
 
 # Create shape tuple for reshaping
 shape = (
+    len(fcs_loc_unique),
     len(radius_unique),
     len(AR_unique),
+    len(tdivc_scale_unique),
     len(N_eng_unique),
+    len(HTR_f_unique),
     len(Vspec_unique),
+    len(fcs_fuselage_location_unique),
 )
 
 # Create index mapping for each dimension
+fcs_loc_idx = {v: i for i, v in enumerate(fcs_loc_unique)}
 radius_idx = {v: i for i, v in enumerate(radius_unique)}
 AR_idx = {v: i for i, v in enumerate(AR_unique)}
+tdivc_scale_idx = {v: i for i, v in enumerate(tdivc_scale_unique)}
 N_eng_idx = {v: i for i, v in enumerate(N_eng_unique)}
+HTR_f_idx = {v: i for i, v in enumerate(HTR_f_unique)}
 Vspec_idx = {v: i for i, v in enumerate(Vspec_unique)}
+fcs_fuselage_location_idx = {v: i for i, v in enumerate(fcs_fuselage_location_unique)}
 
 # Initialize empty arrays
 CDS_grid = np.full(shape, np.nan)
 CDS_ref_grid = np.full(shape, np.nan)
 WMTO_grid = np.full(shape, np.nan)
 WMTO_ref_grid = np.full(shape, np.nan)
+Vol_wing_grid = np.full(shape, np.nan)
+PFEI_grid = np.full(shape, np.nan)
+PFEI_ref_grid = np.full(shape, np.nan)
+seats_abreast_grid = np.full(shape, np.nan)
+seats_abreast_ref_grid = np.full(shape, np.nan)
+Vol_nacelle_grid = np.full(shape, np.nan)
+y_centroid_wing_grid = np.full(shape, np.nan)
+L_fuse_grid = np.full(shape, np.nan)
+y_centroid_nacelles_grid = np.full(shape, np.nan)
+span_grid = np.full(shape, np.nan)
 
 # Populate arrays
 for _, row in df.iterrows():
+    h = fcs_loc_idx[row["fcs_loc"]]
     i = radius_idx[row["radius"]]
     j = AR_idx[row["AR"]]
-    k = N_eng_idx[row["N_eng"]]
-    l = Vspec_idx[row["Vspec"]]
-
-    CDS_grid[i, j, k, l] = row["CDS"]
-    CDS_ref_grid[i, j, k, l] = row["CDS_ref"]
-    WMTO_grid[i, j, k, l] = row["WMTO"]
-    WMTO_ref_grid[i, j, k, l] = row["WMTO_ref"]
-
-#%%
-
-def add_margin(ax, m=0.05):
-    for a, s in [(ax.get_xlim, ax.set_xlim), (ax.get_ylim, ax.set_ylim)]:
-        lo, hi = a(); r = hi - lo; s(lo - m*r, hi + m*r)
-
-plt.rcParams['axes.prop_cycle'] = cycler('color', ['#206095', '#a8bd3a', '#871a5b', '#f66068', '#05341A', '#27a0cc', '#003c57', '#22d0b6', '#746cb1', '#A09FA0'])
-colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-
-legend_elements = [
-    Line2D([0], [0], color='black', marker='o', label=r'Baseline $\left( N_\mathrm{eng}=2, \%_\mathrm{wing}=1, \sigma_\mathrm{FC}=2~\mathrm{kW/kg} \right)$'),
-    Line2D([0], [0], color=colors[0], label=r'$\hat{x} \rightarrow \left[ 0,1 \right]$'),
-    Line2D([0], [0], color=colors[1], label=r'$N_\mathrm{eng} \rightarrow \left[ 2,8 \right]$'),
-    Line2D([0], [0], color=colors[2], label=r'$\%_\mathrm{wing} \rightarrow \left[ 0,1 \right]$'),
-    Line2D([0], [0], color=colors[3], label=r'$\sigma_\mathrm{FC} \rightarrow \left[ 2,4 \right]$ kW/kg'),
-    # Line2D([0], [0], color='grey', linestyle='solid', label=r'$\hat{x}=c$'),
-    # Line2D([0], [0], color='grey', linestyle='dashed', label=r'$N_\mathrm{eng}=c$'),
-    # Line2D([0], [0], color='grey', linestyle='dashdot', label=r'$\%_\mathrm{wing}=c$'),
-]
-
-idx_type = 'start'
-# idx_type = 'end'
-if idx_type == 'start':
-    idx = 0
-elif idx_type == 'end':
-    idx = -1
+    k = tdivc_scale_idx[row["tdivc_scale"]]
+    l = N_eng_idx[row["N_eng"]]
+    m = HTR_f_idx[row["HTR_f"]]
+    n = Vspec_idx[row["Vspec"]]
+    o = fcs_fuselage_location_idx[row["fcs_fuselage_location"]]
     
-Vspec_idx = 0
+    CDS_grid[h, i, j, k, l, m, n, o] = row["CDS"]
+    # CDS_ref_grid[h, i, j, k, l, m, n, o] = row["CDS_ref"]
+    WMTO_grid[h, i, j, k, l, m, n, o] = row["WMTO"]
+    # WMTO_ref_grid[h, i, j, k, l, m, n, o] = row["WMTO_ref"]
+    Vol_wing_grid[h, i, j, k, l, m, n, o] = row["Vol_wing"]
+    PFEI_grid[h, i, j, k, l, m, n, o] = row["PFEI"]
+    # PFEI_ref_grid[h, i, j, k, l, m, n, o] = row["PFEI_ref"]
+    seats_abreast_grid[h, i, j, k, l, m, n, o] = row["seats_abreast"]
+    # seats_abreast_ref_grid[h, i, j, k, l, m, n, o] = row["seats_abreast_ref"]
+    Vol_nacelle_grid[h, i, j, k, l, m, n, o] = row["Vol_nacelle"]
+    y_centroid_wing_grid[h, i, j, k, l, m, n, o] = row["y_centroid_wing"]
+    # L_fuse_grid[h, i, j, k, l, m, n, o] = row["L_fuse"]
+    y_centroid_nacelles_grid[h, i, j, k, l, m, n, o] = row["y_centroid_nacelles"]
+    span_grid[h, i, j, k, l, m, n, o] = row["span"]
+    
+# sys.exit()
 
-fig, ax = plt.subplots(figsize=(8, 6))
+y_centroid_wing_norm_grid = y_centroid_wing_grid / (span_grid / 2)
+y_centroid_nacelles_norm_grid = y_centroid_nacelles_grid / (span_grid / 2)
 
-# Explicit axis limits needed when not using ax.scatter() due to nan's in some arrays
-X = WMTO_grid / WMTO_ref_grid
-Y = CDS_grid / CDS_ref_grid
-ax.set_xlim(np.nanmin(X), np.nanmax(X))
-ax.set_ylim(np.nanmin(Y), np.nanmax(Y))
+#%% Wing
+# """
+mask = (0, slice(None), slice(None), slice(None), slice(None), slice(None), 0, slice(None))
 
-xlim = ax.get_xlim()
-ylim = ax.get_ylim()
+fig, ax = plt.subplots(figsize=tuple(np.array([6.4, 4.8]) * 1.5))
 
-##
-
-# cvhull_points = np.array([
-#     WMTO_grid.flatten() / WMTO_ref_grid.flatten(),
-#     CDS_grid.flatten() / CDS_ref_grid.flatten(),
-# ]).T
-# cvhull = ConvexHull(cvhull_points)
-# cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
-# polygon = Polygon(cvhull_vertices)
-# x_outline_polygon, y_outline_polygon = polygon.exterior.xy
-# ax.fill(
-#     x_outline_polygon, y_outline_polygon, color='grey', alpha=0.1, zorder=-1,
+# s = ax.scatter(
+#     WMTO_grid[mask],# / WMTO_ref_grid[mask],
+#     # CDS_grid[mask] / CDS_ref_grid[mask],
+#     PFEI_grid[mask],# / PFEI_ref_grid[mask],
+#     # c=radius_grid[mask],
+#     # c=N_eng_grid[mask],
+#     # c=HTR_f_grid[mask],
+#     # c=Vspec_grid[mask],
+#     # c=Vol_wing_grid[mask],
+#     # c=AR_grid[mask],
+#     # c=tdivc_scale_grid[mask],
+#     marker='.',
+#     color='black',
+#     zorder=100,
 # )
 
-##
-
-# cvhull_points = np.array([
-#     WMTO_grid[:,:,:,0].flatten() / WMTO_ref_grid[:,:,:,0].flatten(),
-#     CDS_grid[:,:,:,0].flatten() / CDS_ref_grid[:,:,:,0].flatten(),
-# ]).T
-# cvhull = ConvexHull(cvhull_points)
-# cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
-# polygon = Polygon(cvhull_vertices)
-# x_outline_polygon, y_outline_polygon = polygon.exterior.xy
-# ax.fill(
-#     x_outline_polygon, y_outline_polygon, color='black', alpha=0.2, zorder=-1,
+# ax.contour(
+#     np.squeeze(WMTO_grid[mask]),
+#     np.squeeze(PFEI_grid[mask]),
+#     np.squeeze(AR_grid[mask]),
+#     levels=AR_unique,
+#     colors=['blue'],
 # )
 
-##
-
-# cvhull_points = np.array([
-#     WMTO_grid[:,:,:,-1].flatten() / WMTO_ref_grid[:,:,:,-1].flatten(),
-#     CDS_grid[:,:,:,-1].flatten() / CDS_ref_grid[:,:,:,-1].flatten(),
-# ]).T
-# cvhull = ConvexHull(cvhull_points)
-# cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
-# polygon = Polygon(cvhull_vertices)
-# x_outline_polygon, y_outline_polygon = polygon.exterior.xy
-# ax.fill(
-#     x_outline_polygon, y_outline_polygon, color='black', alpha=0.2, zorder=-1,
+# ax.contour(
+#     np.squeeze(WMTO_grid[mask]),
+#     np.squeeze(PFEI_grid[mask]),
+#     np.squeeze(tdivc_scale_grid[mask]),
+#     levels=tdivc_scale_unique,
+#     colors=['red'],
 # )
+'''
+import alphashape
+from alpha_shape_creator import ensure_xy_array, add_shapely_polygon
 
-##
+finite_mask = (np.isfinite(WMTO_grid[mask]) & np.isfinite(PFEI_grid[mask]))
 
-# ax.scatter(WMTO_grid / WMTO_ref_grid, CDS_grid / CDS_ref_grid, marker='.')
+points_2d = np.array([
+    WMTO_grid[mask][finite_mask].flatten(),
+    PFEI_grid[mask][finite_mask].flatten(),
+]).T
 
-# ax.scatter(WMTO_grid[2,:,:,:] / WMTO_ref_grid[2,:,:,:], CDS_grid[2,:,:,:] / CDS_ref_grid[2,:,:,:], marker='.', color='blue')
-# ax.scatter(WMTO_grid[:,2,:,:] / WMTO_ref_grid[:,2,:,:], CDS_grid[:,2,:,:] / CDS_ref_grid[:,2,:,:], marker='.', color='green')
-# ax.scatter(WMTO_grid[:,:,2,:] / WMTO_ref_grid[:,:,2,:], CDS_grid[:,:,2,:] / CDS_ref_grid[:,:,2,:], marker='.', color='red')
-ax.scatter(WMTO_grid[:,:,:,2] / WMTO_ref_grid[:,:,:,2], CDS_grid[:,:,:,2] / CDS_ref_grid[:,:,:,2], marker='.', color='orange')
+pts = ensure_xy_array(points_2d)  # now pts is shape (N,2)
+alpha_shape = alphashape.alphashape(pts, 10)
+add_shapely_polygon(
+    ax, alpha_shape, facecolor=colors[0], edgecolor='None', alpha=0.2,
+)
 
-ax.set_xlabel("Relative weight (-)", labelpad=10)
-ax.set_ylabel("Relative drag (-)", labelpad=10)
+# =============================================================================
+cvhull_points = points_2d
+if len(cvhull_points) > 0:
+    cvhull = ConvexHull(cvhull_points)
+    cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
+    polygon = Polygon(cvhull_vertices)
+    x_outline_polygon, y_outline_polygon = polygon.exterior.xy
+    ax.fill(
+        x_outline_polygon, y_outline_polygon,
+        hatch='..', facecolor=colors[0], edgecolor='None', alpha=0.2,
+    )
+# =============================================================================
+'''
+for i, AR in enumerate(AR_unique):
+    
+    x_slice = WMTO_grid[0, 0, i, slice(None), 0, 0, 0, 0]
+    y_slice = PFEI_grid[0, 0, i, slice(None), 0, 0, 0, 0]
+    
+    good = np.isfinite(x_slice) & np.isfinite(y_slice)
+    
+    ax.plot(
+        x_slice[good], y_slice[good],
+        color=colors[0],
+    )
+        
+for j, tdivc_scale in enumerate(tdivc_scale_unique):
+    
+    good = np.isfinite(x_slice) & np.isfinite(y_slice)
+    
+    x_slice = WMTO_grid[0, 0, slice(None), j, 0, 0, 0, 0]
+    y_slice = PFEI_grid[0, 0, slice(None), j, 0, 0, 0, 0]
+    
+    good = np.isfinite(x_slice) & np.isfinite(y_slice)
+    
+    ax.plot(
+        x_slice[good], y_slice[good],
+        color=colors[1],
+    )
+
+ax.set_xlabel(r'Drag', labelpad=10)
+ax.set_ylabel(r'Weight', labelpad=10)
 ax.spines[['right', 'top']].set_visible(False)
 ax.tick_params(axis='y', which='both', right=False, length=0)
 ax.tick_params(axis='x', which='both', length=0)
 
-# ax.set_xlim(*xlim)
-# ax.set_ylim(*ylim)
-
-# ax.set_xlim(left=1)
-# ax.set_ylim(bottom=1)
-
-## Legend
-
+legend_elements = [
+    Line2D([0], [0], color=colors[0], alpha=1.0, label=r'Contours of aspect ratio'),
+    Line2D([0], [0], color=colors[1], alpha=1.0, label=r'Contours of thickness-chord ratio'),
+]
 leg_main = ax.legend(handles=legend_elements, loc='upper left', frameon=False)
 ax.add_artist(leg_main)
 
-# Create a proxy artist for the legend
-space_patch_1 = mpatches.Patch(color='grey', alpha=0.1, label='Possibility space')
-space_patch_2 = mpatches.Patch(color='black', alpha=0.2, label='Low-tech FC design space')
-space_patch_3 = mpatches.Patch(color='black', alpha=0.2, label='High-tech FC design space')
+add_margin(ax, m=0.05)
 
-space_handles = [space_patch_1, space_patch_2, space_patch_3]
-leg_space = ax.legend(handles=space_handles, loc='lower right', frameon=False)
+# fig.colorbar(s, cmap='viridis')
 
-for leg in (leg_main, leg_space):
-    leg.set_zorder(100)        # draw legends on top of plot
-    leg.get_frame().set_alpha(0)  # transparent background (if frameon=True)
+plt.show()
 
-# ax.set_xscale('log')
-# ax.set_yscale('log')
+#%%
 
-#####
+P_req = 20e6
+Vspec_curr = 0.85e6
+Vol_wing_req = P_req / Vspec_curr
 
-idx_radius_des = -1  # inactive
-idx_AR_des = 0
-idx_N_eng_des = -1
-idx_Vspec_des = 0
+Vol_wing_norm_grid = Vol_wing_grid / Vol_wing_req
 
-ax.scatter(
-    WMTO_grid[idx_radius_des, idx_AR_des, idx_N_eng_des, idx_Vspec_des] / WMTO_ref_grid[idx_radius_des, idx_AR_des, idx_N_eng_des, idx_Vspec_des],
-    CDS_grid[idx_radius_des, idx_AR_des, idx_N_eng_des, idx_Vspec_des] / CDS_ref_grid[idx_radius_des, idx_AR_des, idx_N_eng_des, idx_Vspec_des],
-    marker='o',
-    color='black',
-    zorder=20,
-)
+fig, ax = plt.subplots(figsize=tuple(np.array([6.4, 4.8]) * 1.5))
 
-for idx_radius in range(len(radius_unique)):
-    # ax.plot(
-    #     WMTO_grid[idx_radius, idx_AR_des, [0, -1], idx_Vspec_des] / WMTO_ref_grid[idx_radius, idx_AR_des, [0, -1], idx_Vspec_des],
-    #     CDS_grid[idx_radius, idx_AR_des, [0, -1], idx_Vspec_des] / CDS_ref_grid[idx_radius, idx_AR_des, [0, -1], idx_Vspec_des],
-    #     color=colors[0],
-    #     marker='.',
-    # )
+# s = ax.scatter(
+#     Vol_wing_norm_grid[mask],# / WMTO_ref_grid[mask],
+#     # CDS_grid[mask] / CDS_ref_grid[mask],
+#     y_centroid_wing_norm_grid[mask],# / PFEI_ref_grid[mask],
+#     # c=radius_grid[mask],
+#     # c=N_eng_grid[mask],
+#     # c=HTR_f_grid[mask],
+#     # c=Vspec_grid[mask],
+#     # c=Vol_wing_norm_grid[mask],
+#     # c=AR_grid[mask],
+#     # c=tdivc_scale_grid[mask],
+#     marker='.',
+#     color='black',
+#     zorder=100,
+# )
+
+# ax.contour(
+#     np.squeeze(Vol_wing_norm_grid[mask]),
+#     np.squeeze(y_centroid_wing_norm_grid[mask]),
+#     np.squeeze(AR_grid[mask]),
+#     levels=AR_unique,
+#     colors=['blue'],
+# )
+
+# ax.contour(
+#     np.squeeze(Vol_wing_norm_grid[mask]),
+#     np.squeeze(y_centroid_wing_norm_grid[mask]),
+#     np.squeeze(tdivc_scale_grid[mask]),
+#     levels=tdivc_scale_unique,
+#     colors=['red'],
+# )
+
+import alphashape
+from alpha_shape_creator import ensure_xy_array, add_shapely_polygon
+
+finite_mask = (np.isfinite(Vol_wing_norm_grid[mask]) & np.isfinite(y_centroid_wing_norm_grid[mask]))
+
+points_2d = np.array([
+    Vol_wing_norm_grid[mask][finite_mask].flatten(),
+    y_centroid_wing_norm_grid[mask][finite_mask].flatten(),
+]).T
+
+# pts = ensure_xy_array(points_2d)  # now pts is shape (N,2)
+# alpha_shape = alphashape.alphashape(pts, 0.1)
+# add_shapely_polygon(
+#     ax, alpha_shape, facecolor=colors[0], edgecolor='None', alpha=0.2,
+# )
+
+# =============================================================================
+cvhull_points = points_2d
+if len(cvhull_points) > 0:
+    cvhull = ConvexHull(cvhull_points)
+    cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
+    polygon = Polygon(cvhull_vertices)
+    x_outline_polygon, y_outline_polygon = polygon.exterior.xy
+    ax.fill(
+        x_outline_polygon, y_outline_polygon,
+        hatch='..', facecolor=colors[2], edgecolor='None', alpha=0.3,
+    )
+# =============================================================================
+
+for i, AR in enumerate(AR_unique):
+    
+    x_slice = Vol_wing_norm_grid[0, 0, i, slice(None), 0, 0, 0, 0]
+    y_slice = y_centroid_wing_norm_grid[0, 0, i, slice(None), 0, 0, 0, 0]
+    
+    good = np.isfinite(x_slice) & np.isfinite(y_slice)
+    
     ax.plot(
-        WMTO_grid[idx_radius, idx_AR_des, :, idx_Vspec_des] / WMTO_ref_grid[idx_radius, idx_AR_des, :, idx_Vspec_des],
-        CDS_grid[idx_radius, idx_AR_des, :, idx_Vspec_des] / CDS_ref_grid[idx_radius, idx_AR_des, :, idx_Vspec_des],
+        x_slice[good], y_slice[good],
         color=colors[0],
     )
+        
+for j, tdivc_scale in enumerate(tdivc_scale_unique):
     
-    ax.scatter(
-        WMTO_grid[idx_radius, idx_AR_des, :, idx_Vspec_des] / WMTO_ref_grid[idx_radius, idx_AR_des, :, idx_Vspec_des],
-        CDS_grid[idx_radius, idx_AR_des, :, idx_Vspec_des] / CDS_ref_grid[idx_radius, idx_AR_des, :, idx_Vspec_des],
-        color=colors[2],
-        marker='.',
-        zorder=10,
+    good = np.isfinite(x_slice) & np.isfinite(y_slice)
+    
+    x_slice = Vol_wing_norm_grid[0, 0, slice(None), j, 0, 0, 0, 0]
+    y_slice = y_centroid_wing_norm_grid[0, 0, slice(None), j, 0, 0, 0, 0]
+    
+    good = np.isfinite(x_slice) & np.isfinite(y_slice)
+    
+    ax.plot(
+        x_slice[good], y_slice[good],
+        color=colors[1],
     )
-    
-# for idx_AR in range(len(AR_unique)):
-ax.plot(
-    WMTO_grid[idx_radius_des, :, idx_N_eng_des, idx_Vspec_des] / WMTO_ref_grid[idx_radius_des, :, idx_N_eng_des, idx_Vspec_des],
-    CDS_grid[idx_radius_des, :, idx_N_eng_des, idx_Vspec_des] / CDS_ref_grid[idx_radius_des, :, idx_N_eng_des, idx_Vspec_des],
-    color=colors[1],
-    marker='.',
-)
-    
-# # for idx_N_eng in range(len(N_eng_unique)):
-# ax.scatter(
-#     WMTO_grid[idx_radius_des, idx_AR_des, :, idx_Vspec_des] / WMTO_ref_grid[idx_radius_des, idx_AR_des, :, idx_Vspec_des],
-#     CDS_grid[idx_radius_des, idx_AR_des, :, idx_Vspec_des] / CDS_ref_grid[idx_radius_des, idx_AR_des, :, idx_Vspec_des],
-#     color=colors[2],
-#     marker='.',
-# )
-    
-# for idx_Vspec in range(len(Vspec_unique)):
-ax.plot(
-    WMTO_grid[idx_radius_des, idx_AR_des, idx_N_eng_des, :] / WMTO_ref_grid[idx_radius_des, idx_AR_des, idx_N_eng_des, :],
-    CDS_grid[idx_radius_des, idx_AR_des, idx_N_eng_des, :] / CDS_ref_grid[idx_radius_des, idx_AR_des, idx_N_eng_des, :],
-    color=colors[3],
-    marker='.',
-)
 
-# cvhull_points = np.array([
-#     WMTO_grid[:,:,:,0].flatten() / WMTO_ref_grid[:,:,:,0].flatten(),
-#     CDS_grid[:,:,:,0].flatten() / CDS_ref_grid[:,:,:,0].flatten(),
-# ]).T
-# cvhull = ConvexHull(cvhull_points)
-# cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
-# polygon = Polygon(cvhull_vertices)
-# x_outline_polygon, y_outline_polygon = polygon.exterior.xy
-# ax.fill(
-#     x_outline_polygon, y_outline_polygon, color='black', alpha=0.2, zorder=-1,
-# )
+# fig.colorbar(s, cmap='viridis')
 
-add_margin(ax, 0.05)
-xlim = ax.get_xlim()
-ax.set_ylim(bottom=xlim[0])
-ax.plot([0, 2], [0, 2], color='black', linestyle='dashed', alpha=0.1)
-ax.set_aspect('equal')
+ax.set_xlabel(r'Available / required FCS volume (-)', labelpad=10)
+ax.set_ylabel(r'Span-normalised location of centroid (-)', labelpad=10)
+ax.spines[['right', 'top']].set_visible(False)
+ax.tick_params(axis='y', which='both', right=False, length=0)
+ax.tick_params(axis='x', which='both', length=0)
 
-# plt.tight_layout()
-# plt.savefig('figure.svg', format='svg')
+legend_elements = [
+    Line2D([0], [0], color=colors[0], alpha=1.0, label=r'Aspect ratio'),
+    Line2D([0], [0], color=colors[1], alpha=1.0, label=r'Thickness-chord ratio'),
+    Patch(facecolor=colors[2], edgecolor='None', alpha=0.3, label=r'Insufficient FCS volume'),
+]
+leg_main = ax.legend(handles=legend_elements, loc='center right', frameon=False)
+ax.add_artist(leg_main)
+
+add_margin(ax, m=0.05)
+
+# plt.savefig('wing_centroid_vs_volume.svg', format='svg')
 plt.show()
 
 sys.exit()
+# """
+#%% Nacelle
+# '''
+
+P_req = 20e6
+Vspec_curr = 0.85e6
+Vol_nacelle_req = P_req / Vspec_curr
+
+Vol_nacelle_norm_grid = Vol_nacelle_grid / Vol_nacelle_req
+
+mask = (0, 0, 0, 0, slice(None), slice(None), 0, 0)
+
+fig, ax = plt.subplots(figsize=tuple(np.array([6.4, 4.8]) * 1.5))
+
+s = ax.scatter(
+    Vol_nacelle_norm_grid[0, 0, 0, 0, 0, slice(None), 0, 0],
+    # CDS_grid[mask] / CDS_ref_grid[mask],
+    y_centroid_nacelles_norm_grid[0, 0, 0, 0, 0, slice(None), 0, 0],
+    # c=N_eng_grid[mask],
+    # c=HTR_f_grid[mask],
+    marker='.',# color='blue'
+    color=colors[1],
+    zorder=100,
+)
+
+# s = ax.contour(
+#     Vol_nacelle_norm_grid[mask],
+#     y_centroid_nacelles_norm_grid[mask],
+#     N_eng_grid[mask],
+#     levels=N_eng_unique,
+#     colors=['blue'],
+# )
+
+# s = ax.contour(
+#     Vol_nacelle_norm_grid[mask],
+#     y_centroid_nacelles_norm_grid[mask],
+#     HTR_f_grid[mask],
+#     levels=HTR_f_unique,
+#     colors=['red'],
+# )
+
+cvhull_points = np.array([
+    Vol_nacelle_norm_grid[0, 0, 0, 0, slice(None), slice(None), 0, 0].flatten(),
+    y_centroid_nacelles_norm_grid[0, 0, 0, 0, slice(None), slice(None), 0, 0].flatten(),
+]).T
+if len(cvhull_points) > 0:
+    cvhull = ConvexHull(cvhull_points)
+    cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
+    polygon = Polygon(cvhull_vertices)
+    x_outline_polygon, y_outline_polygon = polygon.exterior.xy
+    ax.fill(
+        x_outline_polygon, y_outline_polygon,
+        hatch='..', facecolor=colors[2], edgecolor='None', alpha=0.3,
+    )
+
+for i in range(len(N_eng_unique)):
+    ax.plot(
+        Vol_nacelle_norm_grid[0, 0, 0, 0, i, slice(None), 0, 0],
+        y_centroid_nacelles_norm_grid[0, 0, 0, 0, i, slice(None), 0, 0],
+        color=colors[0],
+    )
+    print(y_centroid_nacelles_norm_grid[0, 0, 0, 0, i, slice(None), 0, 0][-1])
+    
+for j in range(len(HTR_f_unique)):
+    ax.plot(
+        Vol_nacelle_norm_grid[0, 0, 0, 0, slice(None), j, 0, 0][1:],
+        y_centroid_nacelles_norm_grid[0, 0, 0, 0, slice(None), j, 0, 0][1:],
+        color=colors[1],
+    )
+
+ax.set_xlabel(r'Available / required FCS volume (-)', labelpad=10)
+ax.set_ylabel(r'Span-normalised location of centroid (-)', labelpad=10)
+ax.spines[['right', 'top']].set_visible(False)
+ax.tick_params(axis='y', which='both', right=False, length=0)
+ax.tick_params(axis='x', which='both', length=0)
+
+legend_elements = [
+    Line2D([0], [0], color=colors[0], alpha=1.0, label=r'Number of engines'),
+    Line2D([0], [0], color=colors[1], alpha=1.0, label=r'Fan tub-tip-ratio'),
+    Patch(facecolor=colors[2], edgecolor='None', alpha=0.3, label=r'Insufficient FCS volume'),
+]
+leg_main = ax.legend(handles=legend_elements, loc='center right', frameon=False)
+ax.add_artist(leg_main)
+
+add_margin(ax, m=0.05)
+
+# fig.colorbar(s, cmap='viridis')
+
+# plt.savefig('nacelle_centroid_vs_volume.svg', format='svg')
+plt.show()
 
 #%%
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#%%
-
-# Z = WMTO_grid[:,:,-1,0] / WMTO_ref_grid[:,:,-1,0]
-# Z = WMTO_grid[:,:,0,0] / WMTO_ref_grid[:,:,0,0]
-Z = WMTO_grid[:,:,1,0] / WMTO_ref_grid[:,:,1,0]
+mask = (0, 0, 0, 0, slice(None), slice(None), 0, 0)
 
 fig, ax = plt.subplots()
 
-# cf = ax.contourf(A[:,:,-1,0], B[:,:,-1,0], Z)
-# cf = ax.contourf(A[:,:,0,0], B[:,:,0,0], Z)
-cf = ax.contourf(A[:,:,1,0], B[:,:,1,0], Z)
-cbar = fig.colorbar(cf, ax=ax, label="Relative weight (-)")
+# s = ax.scatter(
+#     WMTO_grid[mask],
+#     CDS_grid[mask],
+#     # c=N_eng_grid[mask],
+#     # c=HTR_f_grid[mask],
+#     marker='.',# color='blue'
+# )
+
+s = ax.contour(
+    WMTO_grid[mask],
+    CDS_grid[mask],
+    N_eng_grid[mask],
+    levels=N_eng_unique,
+    colors=['blue'],
+)
+
+s = ax.contour(
+    WMTO_grid[mask],
+    CDS_grid[mask],
+    HTR_f_grid[mask],
+    levels=HTR_f_unique,
+    colors=['red'],
+)
+
+fig.colorbar(s, cmap='viridis')
 
 plt.show()
 
+sys.exit()
+# '''
+#%% Fuselage
 
-#%%
+from matplotlib.colors import Normalize
+from matplotlib_custom_settings import *
+import matplotlib.colors as mcolors
 
-# fig, ax = plt.subplots()
+def opaque_color_from_hex(hex_color, alpha=0.5, background='white'):
+    """Return an opaque RGB color that looks like `hex_color` with transparency `alpha`
+    over the given `background`."""
+    rgba_fg = np.array(mcolors.to_rgba(hex_color))
+    rgba_bg = np.array(mcolors.to_rgba(background))
+    blended_rgb = rgba_fg[:3] * alpha + rgba_bg[:3] * (1 - alpha)
+    return mcolors.to_hex(blended_rgb, keep_alpha=False)
 
-# for i in range(4):
-#     for j in range(4):
-#         ax.scatter(D[:,:,1,j], WMTO_grid[:,:,1,j] / WMTO_ref_grid[:,:,1,j], color=colors[j])
 
-# plt.show()
+# your masks
+mask_0 = (0, slice(None), 0, 0, 0, 0, slice(None), 0)
+mask_1 = (0, slice(None), 0, 0, 0, 0, slice(None), 1)
 
+# Example: assuming seats_abreast_grid is your color variable
+# vmin = np.nanmin(seats_abreast_grid)
+# vmax = np.nanmax(seats_abreast_grid)
+# vmin = np.nanmin(Vspec_grid)
+# vmax = np.nanmax(Vspec_grid)
+vmin = np.nanmin(radius_grid)
+vmax = np.nanmax(radius_grid)
+norm = Normalize(vmin=vmin, vmax=vmax)
 
-#%%
+fig, ax = plt.subplots(figsize=tuple(np.array([6.4, 4.8]) * 1.5))
 
-fig, ax = plt.subplots()
+# # optional: plot outlines or reference markers
+# ax.scatter(radius_grid[mask_1], L_fuse_grid[mask_1], color='red')
+# ax.scatter(radius_grid[mask_0], L_fuse_grid[mask_0], color='blue')
 
-X = D[:,0,0,:]
-Y = WMTO_grid[:,0,0,:] / WMTO_ref_grid[:,0,0,:]
+# fig2, ax2 = plt.subplots()
 
-ax.scatter(X, Y, color=colors[0])
+for i, seats_abreast in enumerate(np.unique(seats_abreast_grid)):
+    
+    mask_seats_abreast = (seats_abreast_grid == seats_abreast) & (fcs_fuselage_location_grid == 1.0)
+    
+    radius_grid_masked = radius_grid[mask_seats_abreast]
+    L_fuse_grid_masked = L_fuse_grid[mask_seats_abreast]
+    finite_mask = np.isfinite(radius_grid_masked) & np.isfinite(L_fuse_grid_masked)
+    radius_grid_filtered_masked = radius_grid_masked[finite_mask]
+    L_fuse_grid_filtered_masked = L_fuse_grid_masked[finite_mask]
+    
+    cvhull_points = np.array([
+        radius_grid_filtered_masked.flatten(),
+        L_fuse_grid_filtered_masked.flatten(),
+    ]).T
+    if len(cvhull_points) > 0:
+        cvhull = ConvexHull(cvhull_points)
+        cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
+        polygon = Polygon(cvhull_vertices)
+        x_outline_polygon, y_outline_polygon = polygon.exterior.xy
+        ax.fill(
+            x_outline_polygon, y_outline_polygon,
+            hatch='..', facecolor=opaque_color_from_hex(colors[i], 0.5), edgecolor=opaque_color_from_hex(colors[i], 1), zorder=-1,
+        )
+        
+    ###
+        
+    x_masked = np.ma.array(radius_grid, mask=~mask_seats_abreast)
+    y_masked = np.ma.array(L_fuse_grid, mask=~mask_seats_abreast)
+    z_masked = np.ma.array(Vspec_grid, mask=~mask_seats_abreast)
+        
+    # ax.contour(
+    #     x_masked[mask_1],
+    #     y_masked[mask_1],
+    #     z_masked[mask_1],
+    # )
+    
+    # for j, Vspec in enumerate(Vspec_unique):
+    #     ax.plot(
+    #         x_masked[0, slice(None), 0, 0, 0, 0, j, 1],
+    #         y_masked[0, slice(None), 0, 0, 0, 0, j, 1],
+    #         color='black',
+    #     )
+    
+    for j, Vspec in enumerate(Vspec_unique):
+        
+        if not (j == 0 or j == len(Vspec_unique) - 1):
+            continue
+        
+        # take the 1-D slice (masked array) you already built
+        x_slice = x_masked[0, slice(None), 0, 0, 0, 0, j, 1]
+        y_slice = y_masked[0, slice(None), 0, 0, 0, 0, j, 1]
+    
+        # get boolean mask arrays (True where masked)
+        x_mask_bool = np.ma.getmaskarray(x_slice)
+        y_mask_bool = np.ma.getmaskarray(y_slice)
+    
+        # construct boolean of good points: not masked AND finite
+        x_data = x_slice.data  # view of underlying data
+        y_data = y_slice.data
+        good = (~x_mask_bool) & (~y_mask_bool) & np.isfinite(x_data) & np.isfinite(y_data)
+    
+        # if no good points, skip
+        if not np.any(good):
+            continue
+    
+        # select only good entries (preserves order so neighbors connect)
+        x_plot = x_data[good]
+        y_plot = y_data[good]
+    
+        # =============================================================================
+        ax.plot(x_plot, y_plot, color='black')
+        # =============================================================================
+        
+        # L_fuse_0 = L_fuse_grid[0, slice(None), 0, 0, 0, 0, j, 0]
+        # L_fuse_1 = L_fuse_grid[0, slice(None), 0, 0, 0, 0, j, 1]
+        
+        # gt_mask = L_fuse_0 > L_fuse_1
+        # ax.scatter(x_slice[gt_mask], y_slice[gt_mask], color='k', marker='.')
+        
+        # print('x_slice[gt_mask], y_slice[gt_mask] =', x_slice[gt_mask], y_slice[gt_mask])
+        
+        # try:
+        #     cvhull_points = np.array([
+        #         x_slice[gt_mask],
+        #         y_slice[gt_mask],
+        #     ]).T
+        #     cvhull = ConvexHull(cvhull_points)
+        #     cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
+        #     polygon = Polygon(cvhull_vertices)
+        #     x_outline_polygon, y_outline_polygon = polygon.exterior.xy
+        #     ax.fill(
+        #         x_outline_polygon, y_outline_polygon, color=colors[i], alpha=0.5, zorder=-1,
+        #     )
+        # except Exception as e:
+        #     # print(str(e))
+        #     pass
+        
+    # =============================================================================
+    # L_fuse_0 = L_fuse_grid[0, slice(None), 0, 0, 0, 0, slice(None), 0]
+    # L_fuse_1 = L_fuse_grid[0, slice(None), 0, 0, 0, 0, slice(None), 1]
+    
+    # gt_mask = L_fuse_0 > L_fuse_1
+    # ax.scatter(x_masked[mask_1][gt_mask], y_masked[mask_1][gt_mask], color=colors[i], marker='.')
+    
+    # print(x_masked[mask_1][gt_mask], y_masked[mask_1][gt_mask])
+    # print()
+    
+    
+    _mask_seats_abreast = (seats_abreast_grid == seats_abreast) & (fcs_fuselage_location_grid == 0.0)
+    _L_fuse_grid_masked = L_fuse_grid[_mask_seats_abreast]
+    # _finite_mask = np.isfinite(radius_grid_masked) & np.isfinite(L_fuse_grid_masked)
+    # print('seats_abreast =', seats_abreast)
+    
+    
+    try:
+        _gt_mask = _L_fuse_grid_masked > L_fuse_grid_masked
+        
+        # ax.scatter(
+        #     radius_grid_filtered_masked[_gt_mask].data,
+        #     L_fuse_grid_filtered_masked[_gt_mask].data,
+        #     color=colors[i], marker='.',
+        # )
+        
+        # # =============================================================================
+        # Vspec_grid_masked = Vspec_grid[mask_seats_abreast]
+        # finite_mask = np.isfinite(radius_grid_masked) & np.isfinite(Vspec_grid_masked)
+        # Vspec_grid_filtered_masked = Vspec_grid_masked[finite_mask]
+        
+        # ax2.scatter(
+        #     radius_grid_filtered_masked[_gt_mask].data,
+        #     Vspec_grid_filtered_masked[_gt_mask].data,
+        #     color=colors[i], marker='.',
+        # )
+        # # =============================================================================
+        
+        cvhull_points = np.array([
+            # x_masked[mask_1][gt_mask].data,
+            # y_masked[mask_1][gt_mask].data,
+            radius_grid_filtered_masked[_gt_mask].data,
+            L_fuse_grid_filtered_masked[_gt_mask].data,
+        ]).T
+        cvhull = ConvexHull(cvhull_points)
+        cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
+        polygon = Polygon(cvhull_vertices)
+        x_outline_polygon, y_outline_polygon = polygon.exterior.xy
+        ax.fill(
+            x_outline_polygon,
+            y_outline_polygon,
+            hatch='\\\\', facecolor=opaque_color_from_hex(colors[i], 0.5), edgecolor=opaque_color_from_hex(colors[i], 1), zorder=-1,
+        )
+    except Exception as e:
+        # print(str(e))
+        pass
+    
+        # try:
+        #     _gt_mask = _L_fuse_grid_masked > L_fuse_grid_masked
+        #     ax.scatter(
+        #         radius_grid_filtered_masked[_gt_mask].data,
+        #         L_fuse_grid_filtered_masked[_gt_mask].data,
+        #         color=colors[i], marker='.',
+        #     )
+        # except:
+        #     pass
+    # =============================================================================
 
-X = D[0,:,0,:]
-Y = WMTO_grid[0,:,0,:] / WMTO_ref_grid[0,:,0,:]
+        
+    # if seats_abreast == 7:
+    #     print(x_masked[0, slice(None), 0, 0, 0, 0, slice(None), 1])
+    #     sys.exit('Stop.')
+    
+    ###
+    
+    mask_seats_abreast = ((seats_abreast_grid == seats_abreast) & (fcs_fuselage_location_grid == 0.0))
+    try:
+        L_fuses_binary = np.unique(L_fuse_grid[mask_seats_abreast])
+        print('L_fuses_binary =', L_fuses_binary)
+        mask_top = (L_fuse_grid[mask_seats_abreast] == np.nanmax(L_fuses_binary))
+        mask_bottom = (L_fuse_grid[mask_seats_abreast] == np.nanmin(L_fuses_binary))
+        ax.plot(
+            radius_grid[mask_seats_abreast][mask_top],
+            L_fuse_grid[mask_seats_abreast][mask_top],
+            color=colors[i],
+            marker='s',
+        )
+        
+        ax.plot(
+            radius_grid[mask_seats_abreast][mask_bottom],
+            L_fuse_grid[mask_seats_abreast][mask_bottom],
+            color=colors[i],
+            marker='s',
+        )
+    except:
+        pass
+    
+    # radius_grid_masked = radius_grid[mask_seats_abreast]
+    # L_fuse_grid_masked = L_fuse_grid[mask_seats_abreast]
+    # finite_mask = np.isfinite(radius_grid_masked) & np.isfinite(L_fuse_grid_masked)
+    # radius_grid_filtered_masked = radius_grid_masked[finite_mask]
+    # L_fuse_grid_filtered_masked = L_fuse_grid_masked[finite_mask]
+    
+    # cvhull_points = np.array([
+    #     radius_grid_filtered_masked.flatten(),
+    #     L_fuse_grid_filtered_masked.flatten(),
+    # ]).T
+    # try:
+    #     cvhull = ConvexHull(cvhull_points)
+    #     cvhull_vertices = cvhull_points[cvhull.vertices]                  # ordered hull vertices
+    #     polygon = Polygon(cvhull_vertices)
+    #     x_outline_polygon, y_outline_polygon = polygon.exterior.xy
+    #     ax.fill(
+    #         x_outline_polygon, y_outline_polygon, color=colors[i], alpha=0.5, zorder=-1,
+    #         linestyle='dashed',
+    #     )
+    # except Exception as e:
+    #     # print(str(e))
+    #     pass
+    
+    
+    
 
-ax.scatter(X, Y, color=colors[1])
+# # these will share the same color scale
+# s1 = ax.scatter(
+#     radius_grid[mask_1],
+#     L_fuse_grid[mask_1],
+#     # c=seats_abreast_grid[mask_1],
+#     # c=Vspec_grid[mask_1],
+#     c=radius_grid[mask_1],
+#     marker='.',
+#     norm=norm,
+#     cmap='viridis'
+# )
+# s2 = ax.scatter(
+#     radius_grid[mask_0],
+#     L_fuse_grid[mask_0],
+#     # c=seats_abreast_grid[mask_0],
+#     # c=Vspec_grid[mask_0],
+#     c=radius_grid[mask_0],
+#     marker='o',
+#     norm=norm,
+#     cmap='viridis'
+# )
 
-X = D[0,0,:,:]
-Y = WMTO_grid[0,0,:,:] / WMTO_ref_grid[0,0,:,:]
+# # only one colorbar is needed — use the last scatter as representative
+# fig.colorbar(s2, ax=ax)
 
-ax.scatter(X, Y, color=colors[2])
+ax.set_xlabel('Fuselage radius (m)', labelpad=10)
+ax.set_ylabel('Fuselage length (m)', labelpad=10)
+ax.spines[['right', 'top']].set_visible(False)
+ax.tick_params(axis='y', which='both', right=False, length=0)
+ax.tick_params(axis='x', which='both', length=0)
 
+legend_elements = [
+    Line2D([0], [0], color='black', marker='s', alpha=1.0, label=r'Underfloor FCS'),
+    Patch(facecolor='None', edgecolor='black', alpha=1.0, label='Aft FCS'),
+    Patch(facecolor='None', edgecolor='black', hatch='..', alpha=1.0, label=r'$L_\mathrm{fuse,uf} < L_\mathrm{fuse,aft}$ for same $\nu_\mathrm{FCS}$'),
+    Patch(facecolor='None', edgecolor='black', hatch='\\\\', alpha=1.0, label=r'$L_\mathrm{fuse,uf} > L_\mathrm{fuse,aft}$ for same $\nu_\mathrm{FCS}$'),
+]
+leg_main = ax.legend(handles=legend_elements, loc='upper right', frameon=False)
+ax.add_artist(leg_main)
+
+# plt.savefig('fuse_length_vs_radius.svg', format='svg')
 plt.show()
 
 
