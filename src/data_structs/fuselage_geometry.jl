@@ -40,29 +40,7 @@ function calculate_shell_geometry!(fuse::Fuselage, Δp::AbstractFloat)
     V_nose = S_nose * fuse.skin.thickness
     V_bulk = S_bulk * fuse.skin.thickness
     V_web = A_web * l_shell
-
-    # ############################################################################
-
-    # # NILS: calculate available FCS volume
-    # hcabin = Rfuse * (1 - sin(θ2)) #Upper cabin height  # NILS: from function MinCabinHeightConst(x, fuse)
-
-    # Rfuse = fuse.layout.radius
-    # dRfuse = fuse.layout.bubble_lower_downward_shift  # NILS: zero in my case
-
-    # #Find size of unit load device that must fit in cargo bay
-    # ULD = fuse.cabin.unit_load_device
-    # ULDdims = UnitLoadDeviceDimensions[ULD]
-    # minheight = ULDdims[1]
-    # minwidth = ULDdims[2] #Base width
-
-    # θcargo = -acos(minwidth/(2*Rfuse)) #Angle of cargo hold floor  # NILS: from function MinCargoHeightConst(x, fuse)
-    # hmax = dRfuse + Rfuse * (sin(θ1) - sin(θcargo)) #Maximum height of cargo hold
-
-    # theta_3 = pi - 2 * theta_1
-    # A_cargo = Rfuse * theta_3^2 / 2
-
-    # ############################################################################
-
+    
     # Weights
     skin_weight_density = fuse.skin.ρ * gee
     W_nose = Weight(W = skin_weight_density * V_nose, x = nose_centroid)

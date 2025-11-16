@@ -107,6 +107,7 @@ Vne = "280 kts"
 [Fuselage]
 cabin_pressure_altitude = "8000.0 ft"
 l_fcs_fuselage = 0.0
+V_fcs_fuselage = 5
 fcs_fuselage_location = 0.0
 
     [Fuselage.Aero]
@@ -125,7 +126,6 @@ fcs_fuselage_location = 0.0
     stringer = 0.35
     seat_weight_fraction = 0.1
     HPE_sys_weight_fraction = 0.01
-    custom_weight_delta = 0.0
     APU_weight_fraction = 0.035
     add_payload_weight_fraction = 0.35
     frame = 0.25
@@ -142,7 +142,7 @@ fcs_fuselage_location = 0.0
     VT_load_fuse_bend_relief = 0.7
     x_pressure_shell_aft = "102 ft"
     x_APU = "120 ft"
-    radius = 3.302
+    radius = 2.1025555555555555
     y_critical_engines = "16 ft"
     front_seat_offset = "10 ft"
     seat_pitch = "30 in"
@@ -164,7 +164,7 @@ fcs_fuselage_location = 0.0
     floor_depth = "5.0 in"
     x_pressure_shell_fwd = "17 ft"
     x_end_cylinder = "97 ft"
-    theta_floor = 20.0
+    theta_floor = 15.0
     Nwebs = 1
     floor_distance = "0 in"
     x_nose_tip = "0 ft"
@@ -184,8 +184,8 @@ Re_ref = 1.0e7
     AR_Htail = 6.0
     sweep = 26.0
     opt_sizing = "fixed_Vh"
-    SM_min = 0.05
     x_Htail = "114.5 ft"
+    SM_min = 0.05
     box_width_to_chord = 0.5
     added_weight_fraction = 0.3
     Vh = 1.45
@@ -303,20 +303,11 @@ core_in_clean_flow = true
 Tt4_takeoff = 1833.0
 Tt4_frac_bottom_of_climb = 0.2
 number_of_engines = 2
+V_fcs_nacelle = 0.0
 
     [Propulsion.Nacelles]
     nacelle_pylon_wetted_area_ratio = 16.0
     nacelle_local_velocity_ratio = 1.02
-
-    [Propulsion.Combustor]
-    combustion_efficiency = 0.98
-
-    [Propulsion.Weight]
-    pylon_weight_fraction = 0.1
-    engine_weight_delta = 0.0
-    engine_access_weight_fraction = 0.3333333333333333
-    weight_model = "fitzgerald_basic"
-    custom_weight_delta = 0.0
 
     [Propulsion.Turbomachinery]
     M2 = 0.6
@@ -343,6 +334,16 @@ number_of_engines = 2
     low_spool_loss = 0.01
     fan_nozzle_PR = 0.98
 
+    [Propulsion.Weight]
+    pylon_weight_fraction = 0.1
+    engine_weight_delta = 0.0
+    engine_access_weight_fraction = 0.3333333333333333
+    weight_model = "fitzgerald_basic"
+    engine_point_load = 0.0
+
+    [Propulsion.Combustor]
+    combustion_efficiency = 0.98
+
     [Propulsion.Offtakes]
     Tt_offtake_air = 300.0
     Low_spool_power_offtake_per_pax = 200.0
@@ -352,22 +353,22 @@ number_of_engines = 2
     Pt_offtake_air = 30000.0
 
     [Propulsion.Nozzles.core_nozzle_area]
-    descentstart = 1.0
+    descentend = 1.0
     rotation = 1.0
     static = 1.0
     cutback = 1.0
     climbstart = 1.0
     climbend = 1.0
-    descentend = 1.0
+    descentstart = 1.0
 
     [Propulsion.Nozzles.fan_nozzle_area]
-    descentstart = 1.0
+    descentend = 1.0
     rotation = 1.0
     static = 1.0
     cutback = 1.0
     climbstart = 1.0
     climbend = 1.0
-    descentend = 1.0
+    descentstart = 1.0
 
     [Propulsion.HeatExchangers]
     intercooler_inlet_mach = 0.1

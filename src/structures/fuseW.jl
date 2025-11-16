@@ -57,6 +57,9 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
       xhtail,xvtail,
       xwing,xwbox,cbox,
       xeng)
+      """ NILS
+       Point loads are added TO fuselage weight!
+       """
 
       layout = fuse.layout
 
@@ -82,6 +85,7 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
       xWpadd = fuse.added_payload.W * x_cabin
       
       # NILS: add point load(s) to fuselage
+      # analogous to above "various weight moments"
       Wpointload = 0.0
       xWpointload = 0.0
       for point_load in fuse.point_loads
@@ -98,6 +102,7 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
             # ... or a dictionary (fraction of fuselage length)
             elseif point_load.r[1] isa Dict
                   if haskey(point_load.r[1], "frac_len")
+                        # println("point_load.r[1][\"frac_len\"] =", point_load.r[1]["frac_len"])
                         xpointload = (
                               layout.x_pressure_shell_fwd +
                               point_load.r[1]["frac_len"] * (
@@ -135,6 +140,30 @@ function fusew!(fuse,Nland,Wpay,Weng, nftanks,
 #--------------------------------------------------------------------
 #--- lumped tail weight and location  
 #      (Weng=0 if there are no tail-mounted engines)
+      
+      """ NILS
+      The FCS point load is considered part of the tail weight calculation, as
+
+      - For simplicity in the fuselage bending stress analysis to be considered next, both the horizon
+      tal and vertical tails, the tailcone, and any APU or rear-engine weight loads (if present) are
+      lumped into their summed weight Wtail, which is assumed to be located at the corresponding
+      mass centroid location xtail. - (section 2.3.1, TASOPT Technical Description)
+
+      - The fuselage is loaded by the payload weight Wpay, plus its own component weights Wpadd
+      Wshell... etc. which are all assumed to be uniformly distributed over the fuselage shell length
+      lshell. The overall tail weight Wtail is assumed to be a point load at xtail. - (section 2.3.4, TASOPT Technical Description)
+
+      This is consistent with the treatment of e.g. APU, fuselage-mounted engines and -fuel tanks below.
+      See if-block in size_aircraft.jl beginning with `if !(options.has_wing_fuel) #fuselage fuel store`,
+      where Wftank_single, Waftfuel, and xftank_fuse (passed to fusew! right after) are non-zero and thus
+      counted towards Wtail, even when the tank is not mounted in the tailcone itself. This therefore
+      justifies considering the FCS point load as part of Wtail as well, regardless of where in the fuselage
+      it is applied.
+
+      NOTE: because Wtail does not occur in the definition of fuse.weight further down in this function,
+      I must apply it there a second time.
+      """
+
       Wtail = Whtail + Wvtail + fuse.cone.weight.W + fuse.APU.W + Waftfuel + Wftank + Weng + Wpointload  # last term added by NILS
 
       xtail = (  xhtail*Whtail +
@@ -349,11 +378,11 @@ function size_tailcone(fuse::Fuselage, n_vertical_tails, L_vmax, b_v, λv)
   
   end  # function size_tailcone
 
-"""
+""" NILS
     add_load!(fuse::Fuselage, load::PointLoad)
 
 Adds a `PointLoad` to the `extra_loads` field of the `Fuselage` object.
 """
-function add_fus_point_load!(fuse::Fuselage, load::PointLoad)  # function added by NILS
+function add_fus_point_load!(fuse::Fuselage, load::PointLoad)
     push!(fuse.point_loads, load)
 end  # function add_fus_point_load!

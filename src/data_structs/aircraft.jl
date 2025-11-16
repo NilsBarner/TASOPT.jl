@@ -55,6 +55,8 @@ Refer to the docs for a summary of the main `struct`s.
     engine::Engine = Engine()
     landing_gear::LandingGear = LandingGear()
     #TODO: update DOCSTRING for ANY NEW fields/sub-structures
+
+    nils::Nils = Nils()  # line added by NILS
 end
 
 

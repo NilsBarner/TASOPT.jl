@@ -92,6 +92,8 @@ function tanksize(gee, rhoFuel, deltap,
         #        println(Vfuel)
         end
 
+        grav_index = Wfuel_tot / Wtank_total  # NILS: calculate gravimetric efficiency (see weight_routine_tank.jl, which was removed from later versions of TASOPT.jl)
+        parg[igravidxtank] = grav_index  # NILS: log gravimetric efficiency
 
 
 return Wtank_total, thickness_insul, lshell, mdot_boiloff, Vfuel, Wfuel_tot, m_boiloff, tskin, t_head, Rtank, Whead, Wcyl, Winsul_sum, Winsul, l_tank, Wtank #boiloff rate output

@@ -21,10 +21,12 @@ from matplotlib_custom_settings import *
 # Import data from .csv files
 # # df = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'volume_results_narrowbody_nacelle_newest.csv'))
 # df = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'volume_results_narrowbody_newesttttt.csv'))
-df_ref = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_ref_newest_1500.csv'))
-df = pd.read_csv(os.path.join(os.getcwd(), 'combined_results_narrowbody_1500.csv'))
+# df_ref = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_ref_newest_1500.csv'))
+# df = pd.read_csv(os.path.join(os.getcwd(), 'combined_results_narrowbody_1500.csv'))
 # df_ref = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_ref_newest_3000.csv'))
 # df = pd.read_csv(os.path.join(os.getcwd(), 'combined_results_narrowbody_3000.csv'))
+
+df_ref = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_ref_101125_1500.csv'))
 
 # =============================================================================
 #%%
@@ -36,7 +38,7 @@ import pandas as pd
 folder = os.getcwd()  # or any other folder path
 
 # Find all CSV files that start with 'combined_' and end with '_<number>.csv'
-csv_files = glob.glob(os.path.join(folder, 'combined_*_[0-9]*.csv'))
+csv_files = glob.glob(os.path.join(folder, 'combined_*narrowbody_[0-9]*.csv'))
 
 # Sort numerically by the trailing number (so ..._2.csv comes before ..._10.csv)
 def extract_number(filename):
@@ -54,7 +56,7 @@ print(f"Loaded {len(dfs)} matching CSV files.")
 #%%
 # =============================================================================
 
-nu_fcs_range = np.linspace(0.2, 5.5, 1000) * 1e6
+nu_fcs_range = np.linspace(0.2, 5.5, 10) * 1e6
 # nu_fcs_range = [5.5e6]
 # nu_fcs_range = [1e6]
 
@@ -74,6 +76,31 @@ CDS_min_nacelle_array = np.ones((len(dfs), len(nu_fcs_range))) * np.nan
 CDS_min_wing_array = np.ones((len(dfs), len(nu_fcs_range))) * np.nan
 CDS_min_fuselage_rear_array = np.ones((len(dfs), len(nu_fcs_range))) * np.nan
 CDS_min_fuselage_underfloor_array = np.ones((len(dfs), len(nu_fcs_range))) * np.nan
+
+sigma_fcs_nacelle_list = []
+sigma_fcs_wing_list = []
+sigma_fcs_fuselage_rear_list = []
+sigma_fcs_fuselage_underfloor_list = []
+
+Vol_nacelle_list = []
+Vol_wing_list = []
+Vol_fuselage_rear_list = []
+Vol_fuselage_underfloor_list = []
+
+PFEI_nacelle_list = []
+PFEI_wing_list = []
+PFEI_fuselage_rear_list = []
+PFEI_fuselage_underfloor_list = []
+
+WMTO_nacelle_list = []
+WMTO_wing_list = []
+WMTO_fuselage_rear_list = []
+WMTO_fuselage_underfloor_list = []
+
+P_prop_max_nacelle_list = []
+P_prop_max_wing_list = []
+P_prop_max_fuselage_rear_list = []
+P_prop_max_fuselage_underfloor_list = []
 
 for h, df in enumerate(dfs):
     
@@ -140,7 +167,9 @@ for h, df in enumerate(dfs):
         lambda x:
         (x[0] == 0) and
         (x[1] == radius_ref_idx) and
-        (x[2] == AR_ref_idx) and
+        # (x[1] == 19) and
+        # (x[2] == AR_ref_idx) and
+        (x[2] == 8) and
         (x[3] == tdivc_scale_ref_idx) and
         (x[6] == l_fcs_ref_idx) and
         (x[7] == theta_floor_ref_idx) and
@@ -148,6 +177,7 @@ for h, df in enumerate(dfs):
         (x[9] == 0)
     )
     df_filtered_nacelle = df[mask_nacelle]
+    # print("df_filtered_nacelle =", df_filtered_nacelle)
     
     # Wing
     mask_wing = df["index"].apply(
@@ -162,6 +192,7 @@ for h, df in enumerate(dfs):
         (x[9] == 0)
     )
     df_filtered_wing = df[mask_wing]
+    # print("df_filtered_wing =", df_filtered_wing)
     
     # Fuselage
     
@@ -179,7 +210,8 @@ for h, df in enumerate(dfs):
     mask_fuselage_rear = df["index"].apply(
         lambda x:
         (x[0] == 2) and
-        (x[2] == AR_ref_idx) and
+        # (x[2] == AR_ref_idx) and
+        (x[2] == 8) and
         (x[3] == tdivc_scale_ref_idx) and
         (x[4] == N_eng_ref_idx) and
         (x[5] == HTR_f_ref_idx) and
@@ -187,11 +219,13 @@ for h, df in enumerate(dfs):
         (x[9] == 0)
     )
     df_filtered_fuselage_rear = df[mask_fuselage_rear]
+    # print("df_filtered_fuselage_rear =", df_filtered_fuselage_rear)
     
     mask_fuselage_underfloor = df["index"].apply(
         lambda x:
         (x[0] == 2) and
-        (x[2] == AR_ref_idx) and
+        # (x[2] == AR_ref_idx) and
+        (x[2] == 8) and
         (x[3] == tdivc_scale_ref_idx) and
         (x[4] == N_eng_ref_idx) and
         (x[5] == HTR_f_ref_idx) and
@@ -199,35 +233,71 @@ for h, df in enumerate(dfs):
         (x[9] == 0)
     )
     df_filtered_fuselage_underfloor = df[mask_fuselage_underfloor]
+    # print("df_filtered_fuselage_underfloor =", df_filtered_fuselage_underfloor)
+    
+    # sys.exit()
     
     #%%
     
+    sigma_fcs_nacelle = np.ones_like(df_filtered_nacelle["Vol_nacelle"]) * sigma_fcs
+    sigma_fcs_wing = np.ones_like(df_filtered_wing["Vol_wing"]) * sigma_fcs
+    sigma_fcs_fuselage_rear = np.ones_like(df_filtered_fuselage_rear["Vol_fuse"]) * sigma_fcs
+    sigma_fcs_fuselage_underfloor = np.ones_like(df_filtered_fuselage_underfloor["Vol_fuse"]) * sigma_fcs
+    
+    sigma_fcs_nacelle_list.append(sigma_fcs_nacelle)
+    sigma_fcs_wing_list.append(sigma_fcs_wing)
+    sigma_fcs_fuselage_rear_list.append(sigma_fcs_fuselage_rear)
+    sigma_fcs_fuselage_underfloor_list.append(sigma_fcs_fuselage_underfloor)
+    
+    Vol_nacelle = df_filtered_nacelle["Vol_nacelle"].to_numpy()
+    Vol_wing = df_filtered_wing["Vol_wing"].to_numpy()
+    Vol_fuselage_rear = df_filtered_fuselage_rear["Vol_fuse"].to_numpy()
+    Vol_fuselage_underfloor = df_filtered_fuselage_underfloor["Vol_fuse"].to_numpy()
+    
+    Vol_nacelle_list.append(Vol_nacelle)
+    Vol_wing_list.append(Vol_wing)
+    Vol_fuselage_rear_list.append(Vol_fuselage_rear)
+    Vol_fuselage_underfloor_list.append(Vol_fuselage_underfloor)
+    
+    PFEI_nacelle = df_filtered_nacelle["PFEI"].to_numpy()
+    PFEI_wing = df_filtered_wing["PFEI"].to_numpy()
+    PFEI_fuselage_rear = df_filtered_fuselage_rear["PFEI"].to_numpy()
+    PFEI_fuselage_underfloor = df_filtered_fuselage_underfloor["PFEI"].to_numpy()
+    
+    PFEI_nacelle_list.append(PFEI_nacelle)
+    PFEI_wing_list.append(PFEI_wing)
+    PFEI_fuselage_rear_list.append(PFEI_fuselage_rear)
+    PFEI_fuselage_underfloor_list.append(PFEI_fuselage_underfloor)
+    
+    WMTO_nacelle = df_filtered_nacelle["WMTO"].to_numpy()
+    WMTO_wing = df_filtered_wing["WMTO"].to_numpy()
+    WMTO_fuselage_rear = df_filtered_fuselage_rear["WMTO"].to_numpy()
+    WMTO_fuselage_underfloor = df_filtered_fuselage_underfloor["WMTO"].to_numpy()
+    
+    WMTO_nacelle_list.append(WMTO_nacelle)
+    WMTO_wing_list.append(WMTO_wing)
+    WMTO_fuselage_rear_list.append(WMTO_fuselage_rear)
+    WMTO_fuselage_underfloor_list.append(WMTO_fuselage_underfloor)
+    
+    P_prop_max_nacelle = df_filtered_nacelle["P_prop_max"].to_numpy()
+    P_prop_max_wing = df_filtered_wing["P_prop_max"].to_numpy()
+    P_prop_max_fuselage_rear = df_filtered_fuselage_rear["P_prop_max"].to_numpy()
+    P_prop_max_fuselage_underfloor = df_filtered_fuselage_underfloor["P_prop_max"].to_numpy()
+    
+    P_prop_max_nacelle_list.append(P_prop_max_nacelle)
+    P_prop_max_wing_list.append(P_prop_max_wing)
+    P_prop_max_fuselage_rear_list.append(P_prop_max_fuselage_rear)
+    P_prop_max_fuselage_underfloor_list.append(P_prop_max_fuselage_underfloor)
+    
     for i, nu_fcs in enumerate(nu_fcs_range):
     
-        # Vol_fcs_nacelle_req = df_filtered_nacelle['P_prop_max'] / nu_fcs
-        # Vol_fcs_wing_req = df_filtered_wing['P_prop_max'] / nu_fcs
-        # Vol_fcs_fuselage_rear_req = df_filtered_fuselage_rear['P_prop_max'] / nu_fcs
-        # Vol_fcs_fuselage_underfloor_req = df_filtered_fuselage_underfloor['P_prop_max'] / nu_fcs
-    
-        # # Filter out all designs where Vol_fcs_req < Vol_fcs_av
-        
-        # mask_nacelle_vol = df_filtered_nacelle["Vol_nacelle"].apply(lambda x: x > Vol_fcs_nacelle_req)
-        # df_filtered_nacelle_vol = df_filtered_nacelle[mask_nacelle_vol]
-        # mask_wing_vol = df_filtered_wing["Vol_wing"].apply(lambda x: x > Vol_fcs_wing_req)
-        # df_filtered_wing_vol = df_filtered_wing[mask_wing_vol]
-        
-        # sys.exit('Stop.')
-        # mask_fuselage_rear_vol = df_filtered_fuselage_rear["Vol_fuse"].apply(lambda x: x > Vol_fcs_fuselage_rear_req)
-        # df_filtered_fuselage_rear_vol = df_filtered_fuselage_rear[mask_fuselage_rear_vol]
-        # mask_fuselage_underfloor_vol = df_filtered_fuselage_underfloor["Vol_fuse"].apply(lambda x: x > Vol_fcs_fuselage_underfloor_req)
-        # df_filtered_fuselage_underfloor_vol = df_filtered_fuselage_underfloor[mask_fuselage_underfloor_vol]
-        
         Vol_fcs_nacelle_req = df_filtered_nacelle['P_prop_max'] / nu_fcs
         Vol_fcs_wing_req = df_filtered_wing['P_prop_max'] / nu_fcs
         Vol_fcs_fuselage_rear_req = df_filtered_fuselage_rear['P_prop_max'] / nu_fcs
         Vol_fcs_fuselage_underfloor_req = df_filtered_fuselage_underfloor['P_prop_max'] / nu_fcs
+    
+        # # Filter out all designs where Vol_fcs_req < Vol_fcs_av
         
-        # correct masks (returns a 1-D boolean Series)
         mask_nacelle_vol = df_filtered_nacelle["Vol_nacelle"] > Vol_fcs_nacelle_req
         mask_wing_vol = df_filtered_wing["Vol_wing"] > Vol_fcs_wing_req
         mask_fuselage_rear_vol = df_filtered_fuselage_rear["Vol_fuse"] > Vol_fcs_fuselage_rear_req
@@ -238,21 +308,31 @@ for h, df in enumerate(dfs):
         # print('np.shape(df_filtered_wing_vol), np.shape(df_filtered_wing) =', np.shape(df_filtered_wing_vol), np.shape(df_filtered_wing))
         df_filtered_fuselage_rear_vol = df_filtered_fuselage_rear[mask_fuselage_rear_vol]
         df_filtered_fuselage_underfloor_vol = df_filtered_fuselage_underfloor[mask_fuselage_underfloor_vol]
+        
+        # # =============================================================================
+        # df_filtered_nacelle_vol = df_filtered_nacelle
+        # df_filtered_wing_vol = df_filtered_wing
+        # df_filtered_fuselage_rear_vol = df_filtered_fuselage_rear
+        # df_filtered_fuselage_underfloor_vol = df_filtered_fuselage_underfloor
+        # # =============================================================================
     
-        PFEI_min_nacelle = min(df_filtered_nacelle_vol["PFEI"]) if len(df_filtered_nacelle_vol["PFEI"]) > 0 else np.nan
-        PFEI_min_wing = min(df_filtered_wing_vol["PFEI"]) if len(df_filtered_wing_vol["PFEI"]) > 0 else np.nan
-        PFEI_min_fuselage_rear = min(df_filtered_fuselage_rear_vol["PFEI"]) if len(df_filtered_fuselage_rear_vol["PFEI"]) > 0 else np.nan
-        PFEI_min_fuselage_underfloor = min(df_filtered_fuselage_underfloor_vol["PFEI"]) if len(df_filtered_fuselage_underfloor_vol["PFEI"]) > 0 else np.nan
+        PFEI_min_nacelle = np.nanmin(df_filtered_nacelle_vol["PFEI"]) if len(df_filtered_nacelle_vol["PFEI"]) > 0 else np.nan
+        PFEI_min_wing = np.nanmin(df_filtered_wing_vol["PFEI"]) if len(df_filtered_wing_vol["PFEI"]) > 0 else np.nan
+        PFEI_min_fuselage_rear = np.nanmin(df_filtered_fuselage_rear_vol["PFEI"]) if len(df_filtered_fuselage_rear_vol["PFEI"]) > 0 else np.nan
+        PFEI_min_fuselage_underfloor = np.nanmin(df_filtered_fuselage_underfloor_vol["PFEI"]) if len(df_filtered_fuselage_underfloor_vol["PFEI"]) > 0 else np.nan
         
-        WMTO_min_nacelle = min(df_filtered_nacelle_vol["WMTO"]) if len(df_filtered_nacelle_vol["WMTO"]) > 0 else np.nan
-        WMTO_min_wing = min(df_filtered_wing_vol["WMTO"]) if len(df_filtered_wing_vol["WMTO"]) > 0 else np.nan
-        WMTO_min_fuselage_rear = min(df_filtered_fuselage_rear_vol["WMTO"]) if len(df_filtered_fuselage_rear_vol["WMTO"]) > 0 else np.nan
-        WMTO_min_fuselage_underfloor = min(df_filtered_fuselage_underfloor_vol["WMTO"]) if len(df_filtered_fuselage_underfloor_vol["WMTO"]) > 0 else np.nan
+        # print(PFEI_min_nacelle, PFEI_min_wing, PFEI_min_fuselage_rear, PFEI_min_fuselage_underfloor)
+        # print()
         
-        CDS_min_nacelle = min(df_filtered_nacelle_vol["CDS"]) if len(df_filtered_nacelle_vol["CDS"]) > 0 else np.nan
-        CDS_min_wing = min(df_filtered_wing_vol["CDS"]) if len(df_filtered_wing_vol["CDS"]) > 0 else np.nan
-        CDS_min_fuselage_rear = min(df_filtered_fuselage_rear_vol["CDS"]) if len(df_filtered_fuselage_rear_vol["CDS"]) > 0 else np.nan
-        CDS_min_fuselage_underfloor = min(df_filtered_fuselage_underfloor_vol["CDS"]) if len(df_filtered_fuselage_underfloor_vol["CDS"]) > 0 else np.nan
+        WMTO_min_nacelle = np.nanmin(df_filtered_nacelle_vol["WMTO"]) if len(df_filtered_nacelle_vol["WMTO"]) > 0 else np.nan
+        WMTO_min_wing = np.nanmin(df_filtered_wing_vol["WMTO"]) if len(df_filtered_wing_vol["WMTO"]) > 0 else np.nan
+        WMTO_min_fuselage_rear = np.nanmin(df_filtered_fuselage_rear_vol["WMTO"]) if len(df_filtered_fuselage_rear_vol["WMTO"]) > 0 else np.nan
+        WMTO_min_fuselage_underfloor = np.nanmin(df_filtered_fuselage_underfloor_vol["WMTO"]) if len(df_filtered_fuselage_underfloor_vol["WMTO"]) > 0 else np.nan
+        
+        CDS_min_nacelle = np.nanmin(df_filtered_nacelle_vol["CDS"]) if len(df_filtered_nacelle_vol["CDS"]) > 0 else np.nan
+        CDS_min_wing = np.nanmin(df_filtered_wing_vol["CDS"]) if len(df_filtered_wing_vol["CDS"]) > 0 else np.nan
+        CDS_min_fuselage_rear = np.nanmin(df_filtered_fuselage_rear_vol["CDS"]) if len(df_filtered_fuselage_rear_vol["CDS"]) > 0 else np.nan
+        CDS_min_fuselage_underfloor = np.nanmin(df_filtered_fuselage_underfloor_vol["CDS"]) if len(df_filtered_fuselage_underfloor_vol["CDS"]) > 0 else np.nan
         
         PFEI_min_nacelle_array[h, i] = PFEI_min_nacelle
         PFEI_min_wing_array[h, i] = PFEI_min_wing
@@ -276,8 +356,72 @@ for h, df in enumerate(dfs):
     # ax.plot(nu_fcs_range, PFEI_min_fuselage_rear_list, color=colors[h])
     # ax.plot(nu_fcs_range, PFEI_min_fuselage_underfloor_list, color=colors[h])
 
+# sys.exit()
+'''
 #%%
 
+fig, ax = plt.subplots()
+
+# ax.imshow(
+#     PFEI_min_wing_array, extent=[X.min() / 1e6, X.max() / 1e6, Y.min() / 1e3, Y.max() / 1e3],
+#     # cmap=cmap, norm=norm, origin='lower', aspect='auto',
+# )
+
+# Vol_nacelle_list = []
+# Vol_wing_list = []
+# Vol_fuselage_rear_list = []
+# Vol_fuselage_underfloor_list = []
+
+# PFEI_nacelle_list = []
+# PFEI_wing_list = []
+# PFEI_fuselage_rear_list = []
+# PFEI_fuselage_underfloor_list = []
+
+# ax.scatter(np.concatenate(Vol_nacelle_list) / 0.55, np.concatenate(PFEI_nacelle_list), c=np.concatenate(sigma_fcs_nacelle_list), alpha=0.1)
+# ax.scatter(np.concatenate(Vol_wing_list) / 0.36, np.concatenate(PFEI_wing_list), c=np.concatenate(sigma_fcs_wing_list), alpha=0.1)
+# ax.scatter(np.concatenate(Vol_fuselage_rear_list) / 0.69, np.concatenate(PFEI_fuselage_rear_list), c=np.concatenate(sigma_fcs_fuselage_rear_list), alpha=0.1)
+# ax.scatter(np.concatenate(Vol_fuselage_underfloor_list) / 0.88, np.concatenate(PFEI_fuselage_underfloor_list), alpha=0.1, c=np.concatenate(sigma_fcs_fuselage_underfloor_list), zorder=-100)
+
+ax.scatter(np.concatenate(P_prop_max_nacelle_list) / np.concatenate(Vol_nacelle_list) / 0.55 / 1e6, np.concatenate(PFEI_nacelle_list), alpha=0.1)
+ax.scatter(np.concatenate(P_prop_max_wing_list) / np.concatenate(Vol_wing_list) / 0.36 / 1e6, np.concatenate(PFEI_wing_list), alpha=0.1)
+ax.scatter(np.concatenate(P_prop_max_fuselage_rear_list) / np.concatenate(Vol_fuselage_rear_list) / 0.69 / 1e6, np.concatenate(PFEI_fuselage_rear_list), alpha=0.1)
+ax.scatter(np.concatenate(P_prop_max_fuselage_underfloor_list) / np.concatenate(Vol_fuselage_underfloor_list) / 0.88 / 1e6, np.concatenate(PFEI_fuselage_underfloor_list), alpha=0.1, zorder=-100)
+
+# ax.scatter(np.concatenate(P_prop_max_nacelle_list) / np.concatenate(Vol_nacelle_list) / 0.55 / 1e6, np.concatenate(PFEI_nacelle_list), c=np.concatenate(sigma_fcs_nacelle_list), alpha=0.1)
+# ax.scatter(np.concatenate(P_prop_max_wing_list) / np.concatenate(Vol_wing_list) / 0.36 / 1e6, np.concatenate(PFEI_wing_list), c=np.concatenate(sigma_fcs_wing_list), alpha=0.1)
+# ax.scatter(np.concatenate(P_prop_max_fuselage_rear_list) / np.concatenate(Vol_fuselage_rear_list) / 0.69 / 1e6, np.concatenate(PFEI_fuselage_rear_list), c=np.concatenate(sigma_fcs_fuselage_rear_list), alpha=0.1)
+# ax.scatter(np.concatenate(P_prop_max_fuselage_underfloor_list) / np.concatenate(Vol_fuselage_underfloor_list) / 0.88 / 1e6, np.concatenate(PFEI_fuselage_underfloor_list), c=np.concatenate(sigma_fcs_fuselage_underfloor_list), alpha=0.1, zorder=-100)
+
+# ax.scatter(np.concatenate(Vol_nacelle_list) / 0.55, np.concatenate(P_prop_max_nacelle_list), alpha=0.1)
+# ax.scatter(np.concatenate(Vol_wing_list) / 0.36, np.concatenate(P_prop_max_wing_list), alpha=0.1)
+# ax.scatter(np.concatenate(Vol_fuselage_rear_list) / 0.69, np.concatenate(P_prop_max_fuselage_rear_list), alpha=0.1)
+# ax.scatter(np.concatenate(Vol_fuselage_underfloor_list) / 0.88, np.concatenate(P_prop_max_fuselage_underfloor_list), alpha=0.1, zorder=-100)
+
+# ax.scatter(np.concatenate(Vol_nacelle_list) / 0.55, np.concatenate(WMTO_nacelle_list), alpha=0.1)
+# ax.scatter(np.concatenate(Vol_wing_list) / 0.36, np.concatenate(WMTO_wing_list), alpha=0.1)
+# ax.scatter(np.concatenate(Vol_fuselage_rear_list) / 0.69, np.concatenate(WMTO_fuselage_rear_list), alpha=0.1)
+# ax.scatter(np.concatenate(Vol_fuselage_underfloor_list) / 0.88, np.concatenate(WMTO_fuselage_underfloor_list), alpha=0.1, zorder=-100)
+
+# for (Vol_nacelle, PFEI_nacelle) in zip(Vol_nacelle_list, PFEI_nacelle_list):
+#     ax.scatter(Vol_nacelle / 0.55, PFEI_nacelle)
+    
+# for (Vol_wing, PFEI_wing) in zip(Vol_wing_list, PFEI_wing_list):
+#     ax.scatter(Vol_wing / 0.36, PFEI_wing)
+    
+# for (Vol_fuselage_rear, PFEI_fuselage_rear) in zip(Vol_fuselage_rear_list, PFEI_fuselage_rear_list):
+#     ax.scatter(Vol_fuselage_rear / 0.55, PFEI_fuselage_rear)
+    
+# for (Vol_fuselage_underfloor, PFEI_fuselage_underfloor) in zip(Vol_fuselage_underfloor_list, PFEI_fuselage_underfloor_list):
+#     ax.scatter(Vol_fuselage_underfloor / 0.55, PFEI_fuselage_underfloor)
+
+ax.set_xlim(0, 10)
+
+plt.show()
+
+sys.exit()
+
+#%%
+'''
 stacked = np.stack([
         PFEI_min_nacelle_array,
         PFEI_min_wing_array,
@@ -336,7 +480,6 @@ ax.set_xlabel('FCS power density (kW/l)', labelpad=10)
 ax.set_ylabel('FCS specific power (kW/kg)', labelpad=10)
 ax.tick_params(axis='y', which='both', right=False, length=0)
 ax.tick_params(axis='x', which='both', length=0)
-ax.grid(True)
 
 legend_elements = [
     Patch(facecolor=colors[0], edgecolor='None', alpha=1, label='Nacelle'),

@@ -15,84 +15,115 @@ module PointLoadMethods
     include(TASOPT.__TASOPTindices__)
 
     function analyse_aircraft(
-        # ac_segment::String, _ac_ref::Any, _Weng_single_ref::Any, fcs_loc::Any, N_eng::Int,
-        ac_segment::String, _ac_ref::Any, _Weng_single_ref::Any, fcs_loc::Any, span_loc::Any,
-        sigma_gt::Number, sigma_fc_wing_max::Number, sigma_fc::Number, wing_frac::Number,
+        ac_segment::String, ac_ref::Any, Weng_single_ref::Any,
+        fcs_loc::Any, span_loc::Any, sigma_fcs::Number, wing_frac::Number, nacelle_frac::Number,
     )
-
-        # Size reference aircraft if not provided (only needed for case 5)
-        # if _ac_ref === nothing
-        #     ac_ref, Weng_single_ref = analyse_reference_aircraft(ac_segment, N_eng)
-        # else
-        ac_ref, Weng_single_ref = _ac_ref, _Weng_single_ref
-        # end
 
         ###
 
         # Define wing and fuselage point loads
+        sigma_fcs_nacelle = sigma_fcs / nacelle_frac
 
-        W_fc = Weng_single_ref * sigma_gt / sigma_fc
+        # Calculate maximum propulsive power throughout mission so far
+        T_net_max_ref = maximum(ac_ref.pare[ieFe, :])
+        V_0_max_ref = maximum(ac_ref.pare[ieu0, :])
+        P_prop_max_ref = T_net_max_ref * V_0_max_ref
 
-        sigma_fc_wing = sigma_fc_wing_max - wing_frac * (sigma_fc_wing_max - sigma_fc)
-        W_fc_wing = Weng_single_ref * sigma_gt / sigma_fc_wing
-
-        W_fc_fus = W_fc - W_fc_wing
-
-        Fz_point_fus = -W_fc_fus  # -ve
-        Fz_point_wing = -(W_fc_wing - Weng_single_ref)  # -ve
-
-        # Debug print statements
-        # println("W_fc_wing, W_fc: ", W_fc_wing, ", ", W_fc)
-        # println("Fz_point_wing, Fz_point_fus: ", Fz_point_wing, ", ", Fz_point_fus)
+        # Calculate FCS weight distribution
+        neng_ref = 2
+        if sigma_fcs == -1.0  # GT aircraft
+            W_fcs_nacelle_init = Weng_single_ref
+            W_fcs_init = W_fcs_nacelle_init * neng_ref
+        else  # FC aircraft
+            W_fcs_nacelle_init = P_prop_max_ref / neng_ref / sigma_fcs_nacelle * 9.81  # per nacelle
+            W_fcs_init = P_prop_max_ref / sigma_fcs * 9.81  # total on aircraft
+        end
+        W_fcs_airframe_init = W_fcs_init - neng_ref * W_fcs_nacelle_init  # total on airframe
+        W_fcs_wing_init = W_fcs_airframe_init * wing_frac / 2  # per wing half
+        W_fcs_fuselage_init = W_fcs_airframe_init - 2 * W_fcs_wing_init  # total in fuselage
 
         ###
 
         # Write engine point loads to .toml file
+        toml_file_path = ""
+        toml_ref_file_path = ""
         if ac_segment == "narrowbody"
-            toml_data = TOML.parsefile(joinpath(pwd(), "example", "cryo_input.toml"))
+            global toml_file_path = joinpath(pwd(), "example", "a220100_lh2_input.toml")
+            # global toml_file_path = joinpath(pwd(), "example", "cryo_input.toml")
         elseif ac_segment == "regional"
-            toml_data = TOML.parsefile(joinpath(pwd(), "nils", "point_loads", "default_regional_cryo.toml"))
+            global toml_file_path = joinpath(pwd(), "example", "atr72600_lh2_input.toml")
+            # error("message")
         end
-        # toml_data["Propulsion"]["number_of_engines"] = N_eng
-        # toml_data["Propulsion"]["Weight"]["custom_weight_delta"] = -Fz_point_wing  # negative sign accounts for positive weights
-        toml_data["Propulsion"]["Weight"]["custom_weight_delta"] = 0.0  # negative sign accounts for positive weights
-        if ac_segment == "narrowbody"
-            open(joinpath(pwd(), "example", "cryo_input.toml"), "w") do file
-                TOML.print(file, toml_data)
-            end
-        elseif ac_segment == "regional"
-            open(joinpath(pwd(), "nils", "point_loads", "default_regional_cryo.toml"), "w") do file
-                TOML.print(file, toml_data)
-            end
+        toml_data = TOML.parsefile(toml_file_path)
+
+        # toml_data["Propulsion"]["sigma_fcs_nacelle"] = sigma_fcs_nacelle
+        # if span_loc isa Number
+        #     toml_data["Propulsion"]["span_loc"] = span_loc
+        # end
+        # if fcs_loc isa Number
+        #     toml_data["Propulsion"]["fcs_loc"] = fcs_loc    
+        # end
+        # toml_data["Propulsion"]["sigma_fcs"] = sigma_fcs
+        # toml_data["Propulsion"]["nacelle_frac"] = nacelle_frac
+        # toml_data["Propulsion"]["wing_frac"] = wing_frac
+        toml_data["Nils"]["sigma_fcs_nacelle"] = sigma_fcs_nacelle
+        # if span_loc isa Number
+        toml_data["Nils"]["span_loc"] = span_loc
+        # end
+        # if fcs_loc isa Number
+        toml_data["Nils"]["fcs_loc"] = fcs_loc
+        # end
+        toml_data["Nils"]["sigma_fcs"] = sigma_fcs
+        toml_data["Nils"]["nacelle_frac"] = nacelle_frac
+        toml_data["Nils"]["wing_frac"] = wing_frac
+        
+        println(sigma_fcs_nacelle, " " , sigma_fcs, " ", wing_frac, " ", nacelle_frac, " ", fcs_loc, " ", span_loc)
+
+        open(toml_file_path, "w") do file
+            TOML.print(file, toml_data)
         end
 
         # Read model inputs
-        if ac_segment == "narrowbody"
-            global ac = read_aircraft_model(joinpath(TASOPT.__TASOPTroot__, "../example/cryo_input.toml"))  # global needed so updates available in outer scope
-        elseif ac_segment == "regional"
-            global ac = read_aircraft_model(joinpath(TASOPT.__TASOPTroot__, "../nils/point_loads/default_regional_cryo.toml"))  # global needed so updates available in outer scope
+        global ac = read_aircraft_model(toml_file_path)  # global needed so updates available in outer scope
+
+        # Add fuselage point load
+        Fz_point_fus_init = -W_fcs_fuselage_init
+        if fcs_loc isa String
+            _fcs_loc = fcs_loc
+        elseif fcs_loc isa Number
+            _fcs_loc = Dict("frac_len" => fcs_loc)
         end
-
-        # Add fuselage point loads to mutable structure
-        fus_load = TASOPT.structures.PointLoad(
-            force = SVector(0.0, 0.0, Fz_point_fus),  # NILS: previously, I mistakenly multiplied by number of engines here (20.10.2025)
-            r = SVector(fcs_loc, 0.0, 0.0),
+        fus_load_init = TASOPT.structures.PointLoad(
+            force = SVector(0.0, 0.0, Fz_point_fus_init),  # NILS: previously, I mistakenly multiplied by number of engines here (20.10.2025)
+            r = SVector(_fcs_loc, 0.0, 0.0),
             frame = TASOPT.WORLD
         )
-        TASOPT.structures.add_fus_point_load!(ac.fuselage, fus_load)
+        TASOPT.structures.add_fus_point_load!(ac.fuselage, fus_load_init)
 
-        # Add wing point loads to mutable structure
-        # println("Fz_point_wing:", Fz_point_wing)
-        wing_load = TASOPT.structures.PointLoad(
-            force = SVector(0.0, 0.0, Fz_point_wing),
-            # force = SVector(0.0, 0.0, 0.0),
-            r = SVector(0.0, span_loc, 0.0),
+        # Add wing point load
+        Fz_point_wing_init = -W_fcs_wing_init
+        if span_loc isa String
+            _span_loc = span_loc
+        elseif span_loc isa Number
+            _span_loc = Dict("frac_span" => span_loc)
+        end
+        wing_load_init = TASOPT.structures.PointLoad(
+            force = SVector(0.0, 0.0, Fz_point_wing_init),
+            r = SVector(0.0, _span_loc, 0.0),
             frame = TASOPT.WORLD
         )
-        TASOPT.structures.add_wing_point_load!(ac.wing, wing_load)
+        TASOPT.structures.add_wing_point_load!(ac.wing, wing_load_init)
+
+        # Add nacelle point load
+        Fz_point_nacelle_init = Weng_single_ref - W_fcs_nacelle_init
+        ac.engine.point_load = Fz_point_nacelle_init  # NILS: store point load in engine model
 
         # Size aircraft
-        size_aircraft!(ac, iter=50, printiter=false)  # disabled default iteration print-outs to console
+        size_aircraft!(
+            ac, iter=100, printiter=false,
+            wrlx1=0.5, wrlx2=0.9, wrlx3=0.5,
+            # wrlx1=0.5, wrlx2=0.1, wrlx3=0.5,
+        )  # disabled default iteration print-outs to console
 
         return ac, ac_ref
 
@@ -106,48 +137,40 @@ module PointLoadMethods
         # Baseline LH2 aircraft
 
         # Set all point loads applied via .toml file to 0
+        toml_file_path = ""
+        toml_ref_file_path = ""
         if ac_segment == "narrowbody"
-            toml_data = TOML.parsefile(joinpath(pwd(), "example", "cryo_input.toml"))
+            global toml_ref_file_path = joinpath(pwd(), "example", "a220100_lh2_input_org.toml")
+            # global toml_ref_file_path = joinpath(pwd(), "example", "cryo_input_org.toml")
         elseif ac_segment == "regional"
-            toml_data = TOML.parsefile(joinpath(pwd(), "nils", "point_loads", "default_regional_cryo.toml"))
+            global toml_ref_file_path = joinpath(pwd(), "example", "atr72600_lh2_input_org.toml")
+            # error("message")
         end
-        # toml_data["Propulsion"]["number_of_engines"] = N_eng
-        toml_data["Propulsion"]["number_of_engines"] = 2
-        toml_data["Propulsion"]["Weight"]["custom_weight_delta"] = 0.0  # point load at engine location on wing
-        if ac_segment == "narrowbody"
-            open(joinpath(pwd(), "example", "cryo_input.toml"), "w") do file
-                TOML.print(file, toml_data)
-            end
-        elseif ac_segment == "regional"
-            open(joinpath(pwd(), "nils", "point_loads", "default_regional_cryo.toml"), "w") do file
-                TOML.print(file, toml_data)
-            end
-        end
+        toml_data = TOML.parsefile(toml_ref_file_path)
 
         # Read model inputs
-        if ac_segment == "narrowbody"
-            global ac_ref = read_aircraft_model(joinpath(TASOPT.__TASOPTroot__, "../example/cryo_input.toml"))
-        elseif ac_segment == "regional"
-            global ac_ref = read_aircraft_model(joinpath(TASOPT.__TASOPTroot__, "../nils/point_loads/default_regional_cryo.toml"))
-        end
+        global ac_ref = read_aircraft_model(toml_ref_file_path)
 
-        # Set point loads applied via PointLoad mutable struct to 0
-        fus_load = TASOPT.structures.PointLoad(
-            force = SVector(0.0, 0.0, 0.0),
-            r = SVector(0.0, 0.0, 0.0),
-            frame = TASOPT.WORLD
-        )
-        TASOPT.structures.add_fus_point_load!(ac_ref.fuselage, fus_load)
+        # # Set point loads applied via PointLoad mutable struct to 0
+        # fus_load = TASOPT.structures.PointLoad(
+        #     force = SVector(0.0, 0.0, 0.0),
+        #     r = SVector(0.0, 0.0, 0.0),
+        #     frame = TASOPT.WORLD
+        # )
+        # TASOPT.structures.add_fus_point_load!(ac_ref.fuselage, fus_load)
 
-        wing_load = TASOPT.structures.PointLoad(
-            force = SVector(0.0, 0.0, 0.0),
-            r = SVector(0.0, 0.0, 0.0),
-            frame = TASOPT.WORLD
-        )
-        TASOPT.structures.add_wing_point_load!(ac_ref.wing, wing_load)
+        # wing_load = TASOPT.structures.PointLoad(
+        #     force = SVector(0.0, 0.0, 0.0),
+        #     r = SVector(0.0, 0.0, 0.0),
+        #     frame = TASOPT.WORLD
+        # )
+        # TASOPT.structures.add_wing_point_load!(ac_ref.wing, wing_load)
 
         # Size aircraft
-        size_aircraft!(ac_ref, iter=50, printiter=false)  # disabled default iteration print-outs to console
+        size_aircraft!(
+            ac_ref, iter=100, printiter=false,
+            wrlx1=0.5, wrlx2=0.9, wrlx3=0.5,
+        )  # disabled default iteration print-outs to console
 
         # Print summary data
         # summary(ac_ref)

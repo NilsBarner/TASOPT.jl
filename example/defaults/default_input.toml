@@ -116,6 +116,9 @@
 
 [Fuselage]
     cabin_pressure_altitude = "8000.0 ft"
+    V_fcs_fuselage = 0.0
+    l_fcs_fuselage = 0.0
+    fcs_fuselage_location = 1.0
 
 [Fuselage.Geometry]
     number_of_bubbles = 1  # SingleBubble or MultiBubble Designs
@@ -154,6 +157,7 @@
     x_pressure_shell_aft = "102 ft"
     x_cone_end           = "117 ft"
     x_end                = "124 ft"
+    theta_floor = 0.0
     
 # Power systems and landing gear locations
     x_HPE_sys = "62ft" #Hydraulic, Pneumatic and Electrical systems
@@ -227,6 +231,8 @@
 
     # Airfoil data (Should be stored in src/airfoil_data/)
     airfoil = "C.air"
+    TR_scale = 1.0
+    tdivc_scale = 1.0
 
 [Wing.Aero]
     fuselage_lift_carryover_loss_factor = -0.3
@@ -431,6 +437,7 @@
 
     # Core in clean flow or does core ingests KE defect?
     core_in_clean_flow = true
+    V_fcs_nacelle = 0.0
 
 [Propulsion.Turbomachinery]
 
@@ -522,4 +529,6 @@
 #Default model does not have heat exchangers in the propulsion system
 #See cryo_input.toml for template with representative values
 #Retained for compatibility as a default with HX designs
-[Propulsion.HeatExchangers] 
+[Propulsion.HeatExchangers]
+
+[Nils]

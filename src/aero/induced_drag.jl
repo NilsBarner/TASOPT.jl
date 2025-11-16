@@ -132,6 +132,12 @@ function induced_drag!(para, wing, htail)
 	# $po,$gammat,gammas, $fLo, $ktip,
       # $specifies_CL,$CLsurfsp")
 
+      # println("nsurf, npout, npinn, npimg, 
+	# Sref, bref,
+	# b,bs,bo,bop, zcent,
+	# po,gammat,gammas, fLo, ktip,
+      # specifies_CL,CLsurfsp, t, y, yp, z, zp, gw, yc, ycp, zc, zcp, gc, vc, wc, vnc =", 
+      # nsurf, ", ", npout, ", ", npinn, ", ", npimg, ", ", Sref, ", ", bref, ", ", b, ", ", bs, ", ", bo, ", ", bop, ", ", zcent, ", ", po, ", ", gammat, ", ", gammas, ", ", fLo, ", ", ktip, ", ", specifies_CL, ", ", CLsurfsp, ", ", t, ", ", y, ", ", yp, ", ", z, ", ", zp, ", ", gw, ", ", yc, ", ", ycp, ", ", zc, ", ", zcp, ", ", gc, ", ", vc, ", ", wc, ", ", vnc)
 
       CLsurf, CLtp, CDtp, sefftp = _trefftz_analysis(nsurf, npout, npinn, npimg, 
 	Sref, bref,

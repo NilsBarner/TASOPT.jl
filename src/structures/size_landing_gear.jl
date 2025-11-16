@@ -35,7 +35,7 @@ function size_landing_gear!(ac)
         yeng = wing.layout.ηs * wing.layout.span / 2
         ground_clearance = landing_gear.engine_ground_clearance
         dihedral_angle = landing_gear.wing_dihedral_angle
-        Deng = parg[igdfan]
+        Deng = parg[igdfan]  # NILS: affected by HTRf via dfan = sqrt(4.0 * A2 / (pi * (1.0 - HTRf^2))) in tfcalc.jl
         l_clearance = ground_clearance + Deng - yeng * tan(dihedral_angle)
 
         #Calculate nose gear length

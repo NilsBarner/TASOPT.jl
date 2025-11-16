@@ -103,7 +103,7 @@ function surfw(po,b,bs,bo,co,zs,
       # NILS: this file is no longer in use - search for "surfw" in GitHub repo
       # and will find that gets called only from wsize.jl, which is no longer in use either
       # (I left a comment there too). The functionality of this file has been replaced by
-      # wing_weights.jl.
+      # wing_weights.jl. This also means that I must NOT account for any wing point loads here!
 
       cosL = cos(sweep*pi/180)
       sinL = sin(sweep*pi/180)

@@ -177,6 +177,28 @@ parg[igNlift] = readmis("Nlift")
 options = read_input("Options", data, default)
 doptions = default["Options"]
 
+##### NILS
+nils = read_input("Nils", data, default)
+dnils = default["Nils"]
+readnils(x) = read_input(x, nils, dnils)
+nils = TASOPT.Nils(
+    theta_floor = Float64(readnils("theta_floor")),
+    engine_point_load = Float64(readnils("engine_point_load")),
+    TR_scale = Float64(readnils("TR_scale")),
+    tdivc_scale = Float64(readnils("tdivc_scale")),
+    V_fcs_nacelle = Float64(readnils("V_fcs_nacelle")),
+    sigma_fcs_nacelle = Float64(readnils("sigma_fcs_nacelle")),
+    sigma_fcs = Float64(readnils("sigma_fcs")),
+    wing_frac = Float64(readnils("wing_frac")),
+    nacelle_frac = Float64(readnils("nacelle_frac")),
+    fcs_loc = readnils("fcs_loc"),
+    span_loc = readnils("span_loc"),
+    V_fcs_fuselage = readnils("V_fcs_fuselage"),
+    l_fcs_fuselage = readnils("l_fcs_fuselage"),
+    fcs_fuselage_location = readnils("fcs_fuselage_location"),
+    V_fcs_wing = readnils("V_fcs_wing"),
+)
+##### NILS
 
 # -----------------------------
 # Engine model setup
@@ -368,11 +390,10 @@ readgeom(x) = read_input(x, geom, dgeom)
     fuselage.layout.x_end = Distance(readgeom("x_end")) 
     fuselage.layout.l_cabin_cylinder = fuselage.layout.x_end_cylinder - fuselage.layout.x_start_cylinder
 
-    readfuse(x) = read_input(x, fuse, dfuse)  # NILS
-    # parg[igVfcsfus] = readfuse("V_fcs_fuselage")  # NILS
-    parg[iglfcsfus] = readfuse("l_fcs_fuselage")  # NILS
-    parg[igfcsfusloc] = readfuse("fcs_fuselage_location")  # NILS
-    parg[igthetafloor] = Angle(readgeom("theta_floor")) * pi / 180  # NILS
+    # parg[igVfcsfus] = nils.V_fcs_fuselage  # NILS
+    # parg[iglfcsfus] = nils.l_fcs_fuselage  # NILS
+    # parg[igfcsfusloc] = nils.fcs_fuselage_location  # NILS
+    # parg[igthetafloor] = nils.theta_floor  # NILS
     fuselage.cabin.unit_load_device = readgeom("unit_load_device")  # NILS (I need this for single-decker too)
 
 
@@ -529,8 +550,8 @@ readwing(x) = read_input(x, wing_i, dwing)
     wing.layout.AR = readwing("AR")
     wing.layout.max_span = Distance(readwing("maxSpan"))
 
-    wing.inboard.λ = readwing("inner_panel_taper_ratio") * readwing("TR_scale")  # scaling factor added by NILS
-    wing.outboard.λ = readwing("outer_panel_taper_ratio") * readwing("TR_scale")  # scaling factor added by NILS
+    wing.inboard.λ = readwing("inner_panel_taper_ratio") * nils.TR_scale  # scaling factor added by NILS
+    wing.outboard.λ = readwing("outer_panel_taper_ratio") * nils.TR_scale  # scaling factor added by NILS
     wing.layout.ηs    = readwing("panel_break_location")
     if !(0 ≤ wing.layout.ηs ≤ 1.0)
         @warn "Wing span break location input was $(wing.layout.ηs); ηs must be 0 ≤ ηs ≤ 1.0"
@@ -546,8 +567,8 @@ readwing(x) = read_input(x, wing_i, dwing)
     wing.inboard.cross_section.width_to_chord  = readwing("box_width_to_chord")
     wing.outboard.cross_section.width_to_chord  = readwing("box_width_to_chord")
    
-    wing.inboard.cross_section.thickness_to_chord = readwing("root_thickness_to_chord") * readwing("tdivc_scale")  # scaling factor added by NILS
-    wing.outboard.cross_section.thickness_to_chord = readwing("spanbreak_thickness_to_chord") * readwing("tdivc_scale")  # scaling factor added by NILS
+    wing.inboard.cross_section.thickness_to_chord = readwing("root_thickness_to_chord") * nils.tdivc_scale  # scaling factor added by NILS
+    wing.outboard.cross_section.thickness_to_chord = readwing("spanbreak_thickness_to_chord") * nils.tdivc_scale  # scaling factor added by NILS
     
     wing.inboard.cross_section.web_to_box_height  = readwing("hweb_to_hbox")
     wing.outboard.cross_section.web_to_box_height = readwing("hweb_to_hbox")
@@ -558,7 +579,7 @@ readwing(x) = read_input(x, wing_i, dwing)
 
     parg[igdxeng2wbox] = wing.layout.box_x - parg[igxeng] #TODO add this as a function of wing
 
-    # parg[igVfcswing] = readwing("V_fcs_wing")  # NILS
+    # parg[igVfcswing] = nils.V_fcs_wing  # NILS (not used - of the three aircraft elements nacelle, wing, and fuselage, the wing is the only non-trivial one to impose a volume upon)
 
     ## Strut details only used if has_strut is true
     if wing.has_strut
@@ -836,7 +857,13 @@ readprop(x) = read_input(x, prop, dprop)
     parg[igTmetal] = Temp.(readprop("T_max_metal"))
     parg[igfTt4CL1] = readprop("Tt4_frac_bottom_of_climb")
     parg[igfTt4CLn] = readprop("Tt4_frac_top_of_climb")
-    # parg[igVfcsnac] = readprop("V_fcs_nacelle")  # NILS
+    # parg[igVfcsnac] = nils.V_fcs_nacelle  # NILS
+    # parg[igsigmafcsnac] = nils.sigma_fcs_nacelle  # NILS
+    # parg[igsigmafcs] = nils.sigma_fcs  # NILS
+    # parg[igwingfrac] = nils.wing_frac  # NILS
+    # parg[ignacellefrac] = nils.nacelle_frac  # NILS
+    # parg[igfcsloc] = nils.fcs_loc  # NILS
+    # parg[igspanloc] = nils.span_loc  # NILS
 
     pare[ieTt4, :, :] .= transpose(Temp.(readprop("Tt4_cruise"))) #transpose for proper broadcasting
 
@@ -1050,10 +1077,7 @@ if compare_strings(propsys,"tf")
     enginecalc! = tfwrap!
     engineweightname = TF_wmodel
     engineweight! = tfweightwrap!
-
-    # Add custom engine weight increment
-    custom_weight_delta = read_input("custom_weight_delta", weight, dweight)  # line added by NILS
-    enginemodel = TASOPT.engine.TurbofanModel(modelname, enginecalc!, engineweightname, engineweight!, eng_has_BLI_cores, custom_weight_delta)  # last argument added by NILS
+    enginemodel = TASOPT.engine.TurbofanModel(modelname, enginecalc!, engineweightname, engineweight!, eng_has_BLI_cores)
     engdata = TASOPT.engine.EmptyData()
 elseif compare_strings(propsys,"fuel_cell_with_ducted_fan")
     modelname = lowercase(propsys)
@@ -1091,7 +1115,7 @@ else
     > TF - turbo-fan
     > TE - turbo-electric" )
 end
-engine = TASOPT.engine.Engine(enginemodel, engdata, Vector{TASOPT.engine.HeatExchanger}())
+engine = TASOPT.engine.Engine(enginemodel, engdata, Vector{TASOPT.engine.HeatExchanger}(), nils.engine_point_load)  # last argument added by NILS
     
 # Heat exchangers, only if in the model file (assigned 0 in the default .tomls)
 # Would be better if there were an independent toggle like `has_wing_fuel` for `fuse_tank` but good enough for now
@@ -1173,11 +1197,13 @@ ac_options = TASOPT.Options(
 
     opt_move_wing = opt_move_wing
 )
-    
+
 #Create aircraft object
 ac = TASOPT.aircraft(name, description, ac_options,
     parg, parm, para, pare, is_sized, 
-    fuselage, fuse_tank, wing, htail, vtail, engine, landing_gear)
+    fuselage, fuse_tank, wing, htail, vtail, engine, landing_gear,
+    nils,  # added by NILS
+)
 
 # ---------------------------------
 # Recalculate cabin length

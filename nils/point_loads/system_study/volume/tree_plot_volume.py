@@ -15,9 +15,11 @@ from shapely import Polygon
 
 from matplotlib_custom_settings import *
 
-# df = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_newest.csv'))
-df = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'volume_results_narrowbody_newesttttt.csv'))
-df_ref = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'volume_results_narrowbody_ref_newest.csv'))
+# df = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'volume_results_narrowbody_newesttttt.csv'))
+# df_ref = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'volume_results_narrowbody_ref_newest.csv'))
+
+df = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_101125.csv'))
+df_ref = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_ref_101125.csv'))
 
 #%%
 
@@ -251,7 +253,8 @@ mask_nacelle = df["index"].apply(
     lambda x:
     (x[0] == 0) and
     (x[1] == radius_ref_idx) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[3] == tdivc_scale_ref_idx) and
     (x[6] == l_fcs_ref_idx) and
     (x[7] == theta_floor_ref_idx) and
@@ -259,12 +262,14 @@ mask_nacelle = df["index"].apply(
     (x[9] == 0)
 )
 df_filtered_nacelle = df[mask_nacelle]
+print("df_filtered_nacelle =", df_filtered_nacelle)
 
 mask_HTR_f = df["index"].apply(
     lambda x:
     (x[0] == 0) and
     (x[1] == radius_ref_idx) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[3] == tdivc_scale_ref_idx) and
     (x[4] == N_eng_ref_idx) and
     (x[6] == l_fcs_ref_idx) and
@@ -278,7 +283,8 @@ mask_N_eng = df["index"].apply(
     lambda x:
     (x[0] == 0) and
     (x[1] == radius_ref_idx) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[3] == tdivc_scale_ref_idx) and
     (x[5] == HTR_f_ref_idx) and
     (x[6] == l_fcs_ref_idx) and
@@ -320,7 +326,8 @@ mask_tdivc_scale = df["index"].apply(
     lambda x:
     (x[0] == 1) and
     (x[1] == radius_ref_idx) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[4] == N_eng_ref_idx) and
     (x[5] == HTR_f_ref_idx) and
     (x[6] == l_fcs_ref_idx) and
@@ -335,7 +342,8 @@ df_filtered_tdivc_scale = df[mask_tdivc_scale]
 mask_fuselage = df["index"].apply(
     lambda x:
     (x[0] == 2) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[3] == tdivc_scale_ref_idx) and
     (x[4] == N_eng_ref_idx) and
     (x[5] == HTR_f_ref_idx) and
@@ -346,7 +354,8 @@ df_filtered_fuselage = df[mask_fuselage]
 mask_fuselage_rear = df["index"].apply(
     lambda x:
     (x[0] == 2) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[3] == tdivc_scale_ref_idx) and
     (x[4] == N_eng_ref_idx) and
     (x[5] == HTR_f_ref_idx) and
@@ -358,7 +367,8 @@ df_filtered_fuselage_rear = df[mask_fuselage_rear]
 mask_fuselage_underfloor = df["index"].apply(
     lambda x:
     (x[0] == 2) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[3] == tdivc_scale_ref_idx) and
     (x[4] == N_eng_ref_idx) and
     (x[5] == HTR_f_ref_idx) and
@@ -370,7 +380,8 @@ df_filtered_fuselage_underfloor = df[mask_fuselage_underfloor]
 mask_radius_0 = df["index"].apply(
     lambda x:
     (x[0] == 2) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[3] == tdivc_scale_ref_idx) and
     (x[4] == N_eng_ref_idx) and
     (x[5] == HTR_f_ref_idx) and
@@ -384,7 +395,8 @@ df_filtered_radius_0 = df[mask_radius_0]
 mask_radius_1 = df["index"].apply(
     lambda x:
     (x[0] == 2) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[3] == tdivc_scale_ref_idx) and
     (x[4] == N_eng_ref_idx) and
     (x[5] == HTR_f_ref_idx) and
@@ -399,7 +411,8 @@ mask_l_fcs = df["index"].apply(
     lambda x:
     (x[0] == 2) and
     (x[1] == radius_ref_idx) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[3] == tdivc_scale_ref_idx) and
     (x[4] == N_eng_ref_idx) and
     (x[5] == HTR_f_ref_idx) and
@@ -408,12 +421,14 @@ mask_l_fcs = df["index"].apply(
     (x[9] == 0)
 )
 df_filtered_l_fcs = df[mask_l_fcs]
+print("df_filtered_l_fcs =", df_filtered_l_fcs)
 
 mask_theta_floor = df["index"].apply(
     lambda x:
     (x[0] == 2) and
     (x[1] == radius_ref_idx) and
-    (x[2] == AR_ref_idx) and
+    # (x[2] == AR_ref_idx) and
+    (x[2] == 8) and
     (x[3] == tdivc_scale_ref_idx) and
     (x[4] == N_eng_ref_idx) and
     (x[5] == HTR_f_ref_idx) and
@@ -422,6 +437,8 @@ mask_theta_floor = df["index"].apply(
     (x[9] == 0)
 )
 df_filtered_theta_floor = df[mask_theta_floor]
+
+#%%
 
 # --- Plot
 fig, ax = plt.subplots(figsize=(8, 6))
@@ -439,7 +456,7 @@ ax.plot(df_filtered_tdivc_scale["WMTO"].to_numpy() / WMTO_ref.to_numpy(), df_fil
 # ax.plot(df_filtered_radius_0["WMTO"].to_numpy() / WMTO_ref.to_numpy(), df_filtered_radius_0["CDS"].to_numpy() / CDS_ref.to_numpy(), marker='.', color=colors[2], linestyle='solid')
 ax.plot(df_filtered_radius_1["WMTO"].to_numpy() / WMTO_ref.to_numpy(), df_filtered_radius_1["CDS"].to_numpy() / CDS_ref.to_numpy(), marker='.', color=colors[2], linestyle='solid')
 ax.plot(df_filtered_l_fcs["WMTO"].to_numpy() / WMTO_ref.to_numpy(), df_filtered_l_fcs["CDS"].to_numpy() / CDS_ref.to_numpy(), marker='.', color=colors[2], linestyle='dashed')
-ax.scatter(df_filtered_theta_floor["WMTO"].to_numpy() / WMTO_ref.to_numpy(), df_filtered_theta_floor["CDS"].to_numpy() / CDS_ref.to_numpy(), marker='s', color=colors[2])
+ax.plot(df_filtered_theta_floor["WMTO"].to_numpy() / WMTO_ref.to_numpy(), df_filtered_theta_floor["CDS"].to_numpy() / CDS_ref.to_numpy(), marker='s', color=colors[2], linestyle='dashdot')
 
 # ax.scatter(df_filtered_nacelle["WMTO"].to_numpy() / WMTO_ref.to_numpy(), df_filtered_nacelle["CDS"].to_numpy() / CDS_ref.to_numpy(), color=colors[0], marker='.', linestyle='solid')
 # ax.scatter(df_filtered_wing["WMTO"].to_numpy() / WMTO_ref.to_numpy(), df_filtered_wing["CDS"].to_numpy() / CDS_ref.to_numpy(), color=colors[1], marker='.', linestyle='solid')
@@ -480,8 +497,10 @@ add_shapely_polygon(
 )
 # =============================================================================
 
-ax.set_xlim(0.775, 1.5)
-ax.set_ylim(0.9, 1.6)
+ax.set_xlim(0.75, 1.4)
+ax.set_ylim(0.875, 1.6)
+# ax.set_xlim(right=1.41)
+# ax.set_ylim(top=1.6)
 ax.plot([0.9, 1.5], [0.9, 1.5], color='black', alpha=0.2)
 
 ax.set_xlabel('Relative weight (-)', labelpad=10)
@@ -506,7 +525,7 @@ handles_fuselage = [
 ]
 
 # Reserve some room on the right for the legends (tune this number if needed)
-fig.subplots_adjust(right=0.80)
+fig.subplots_adjust(right=0.50)
 
 # Place three separate legends in figure coordinates (bbox_transform=fig.transFigure)
 # y positions chosen to stack them vertically on the right
@@ -546,7 +565,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 
 # Create zoomed inset
 axins = inset_axes(ax, width="115%", height="115%", loc='upper left',
-                   bbox_to_anchor=(0.8, 1.3, 0.3, 0.3),
+                   bbox_to_anchor=(0.7625, 1.3, 0.3, 0.3),
                    bbox_transform=ax.transData, borderpad=0)
 
 # Plot same data in inset

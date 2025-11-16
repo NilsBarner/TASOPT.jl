@@ -71,6 +71,7 @@ using .engine
 # Load primary aircraft structure 
 include(joinpath(__TASOPTroot__,"data_structs/landing_gear.jl"))
 include(joinpath(__TASOPTroot__,"data_structs/options.jl"))
+include(joinpath(__TASOPTroot__,"data_structs/nils.jl"))  # line added by NILS
 include(joinpath(__TASOPTroot__,"data_structs/aircraft.jl"))
 export aircraft, fuselage_tank
 
@@ -121,13 +122,19 @@ RSL = pSL / (ρSL * TSL)
 
 sizes the given `aircraft` instance. A light wrapper around the `_size_aircraft!` function, which does the actual work.
 """
-function size_aircraft!(ac::aircraft; iter=35, initwgt=false, Ldebug=false,
-        printiter=true, saveOD=false)
+function size_aircraft!(
+    ac::aircraft; iter=35, initwgt=false, Ldebug=false,
+    printiter=true, saveOD=false,
+    wrlx1=0.5, wrlx2=0.9, wrlx3=0.5,  # added by NILS for improved iteration control
+)
 
     Ldebug && println("Max weight iterations = $iter")
-    _size_aircraft!(ac, itermax = iter, initwgt = initwgt,
+    _size_aircraft!(
+        ac, itermax = iter, initwgt = initwgt,
         Ldebug = Ldebug, printiter = printiter,
-        saveODperf = saveOD)
+        saveODperf = saveOD,
+        wrlx1=wrlx1, wrlx2=wrlx2, wrlx3=wrlx3,  # added by NILS for improved iteration control
+    )
 
     #if sized properly, mark as such
     #TODO: apply logic and exit codes to make check more robust

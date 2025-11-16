@@ -187,6 +187,7 @@ function _size_aircraft!(ac; itermax=35,
         htail.weight = Whtail
         vtail.weight = Wvtail
         wing.weight = Wwing
+        # println("Wwing =", Wwing)
         wing.strut.weight = Wstrut
         parg[igWeng] = Weng
         wing.inboard.weight = Winn
@@ -358,7 +359,7 @@ function _size_aircraft!(ac; itermax=35,
     @inbounds for iterw = 1:itermax
         if iterw == itermax
             # @warn "Reached max iterations in weight sizing loop!"
-            error("Reached max iterations in weight sizing loop!")  # NILS converted this into an error
+            error("Reached max iterations in weight sizing loop!")  # NILS converted this into an error so doesn't fail silently in loops
         end
 
         # Set relaxation factor
@@ -442,6 +443,7 @@ function _size_aircraft!(ac; itermax=35,
             feng = 0.08
             fsum = feng + ffuel + fuse.HPE_sys.W + flgnose + flgmain
             WMTO = (Wpay + fuse.weight + Wwing + Wstrut + Whtail + Wvtail) / (1.0 - fsum)
+            # println("WMTO, Wpay, fuse.weight, Wwing, Wstrut, Whtail, Wvtail = ", WMTO, ", ", Wpay, ", ", fuse.weight, ", ", Wwing, ", ", Wstrut, ", ", Whtail, ", ", Wvtail)
 
             Weng, Wfuel = WMTO .* [feng, ffuel]
             parg[igWMTO] = WMTO
@@ -538,14 +540,82 @@ function _size_aircraft!(ac; itermax=35,
         rhofuel = !(options.has_wing_fuel) ? 0.0 : parg[igrhofuel]
 
         # Call wing_weights function
+        # NILS commented the following function call and replaced it with the lines below
+        # Wwing,Wscen,Wsinn,Wsout,  # Wscen added by NILS for plotting
+        # dyWsinn,dyWsout,
+        # Wfcen,Wfinn,Wfout,
+        # dxWfinn,dxWfout,
+        # dyWfinn,dyWfout,lstrutp = wing_weights!(ac, wing, po, γt, γs,  # first argument added by NILS
+        #                                     Nlift, Weng1, 0, 0.0, 1, wing.layout.ηs,
+        #                                     parg[igsigfac], rhofuel)
+        """ NILS
+        The following block of code has been copied over from wsize.jl for
+        use_NPSS == true (NPSS weight model) and pari[iiengtype] == 0 (turboelectric).
+        The current version of TASOPT.jl (as of commit 5fc60f) only appears to support
+        two engines placed at ηs (see above block) and WRONGLY provides ηs (-) as the
+        engine moment arm, rather than ηs * b / 2 (m). I will have to speak to Prashanth
+        about this - the below equations are consistent with equations (175) - (178) in
+        tasopt.pdf.
+
+        NOTE: the engine moment arms yinn and yout
+        are divided by nin and nout respectively,
+        but in wing_weights.jl they get multiplied by
+        nin and nout again (I do not know why but it does not matter).
+        """
+        ηs = wing.layout.ηs
+        b = wing.layout.span
+        bo = wing.layout.root_span
+        dy = 2 * parg[igdfan] # space to leave near wing root and tip [m]
+        if parg[igneng] == 2
+            yi = [ηs * b / 2]
+        else
+            yi = LinRange(bo / 2 + dy, b / 2 * 3 / 4, Int(parg[igneng] / 2))
+        end
+        ηi = yi / (b / 2)
+        ηo = bo / b
+        ys = ηs * b / 2
+        nin = 0   # number of inboard engines (added by NILS)
+        nout = 0   # number of outboard engines
+        yout = 0.0 # avg. moment arm of outboard engines
+        yinn = 0.0 # avg. moment arm of inboard engines
+        for (i, η) in enumerate(ηi)
+            if η <= ηs * 1.0001  # NILS small tolerance to avoid numerical issues (I have had it where η > ηs in the 7th digit after comma, resulting in nin=0 and division by zero below)
+                nin += 1  # added by NILS
+                yinn += yi[i]
+            else
+                nout += 1
+                yout += yi[i] - ys
+            end
+        end
+        """ NILS
+        The following line was defined in wsize.jl,
+        but is wrong in that it should consider the
+        number of engines per wing (parg[igneng] / 2).
+        Instead, I calculate nin in the above loop.
+        """
+        # nin = parg[igneng] - nout
+        yout = nout > 0 ? yout / nout : 0.0  # NILS: safeguard against division by zero
+        """ NILS
+        To reproduce the results example_cryo.jl
+        of the latest TASOPT.jl version , I must
+        use the below (WRONG) single-engine moment arm.
+        """
+        # yinn = ηs
+        yinn = yinn / nin
+        parg[igyeout] = yout * 1.5
+        parg[igyeinn] = yinn
+        parg[igneout] = nout
         Wwing,Wscen,Wsinn,Wsout,  # Wscen added by NILS for plotting
         dyWsinn,dyWsout,
         Wfcen,Wfinn,Wfout,
         dxWfinn,dxWfout,
-        dyWfinn,dyWfout,lstrutp = wing_weights!(wing, po, γt, γs,
-                                            Nlift, Weng1, 0, 0.0, 1, wing.layout.ηs,
-                                            parg[igsigfac], rhofuel)
-
+        dyWfinn,dyWfout,lstrutp,
+        Wwingpointloadin, Wwingpointloadout, dxWwingpointloadin, dxWwingpointloadout, dyWwingpointloadin, dyWwingpointloadout = wing_weights!(
+            ac, wing, po, γt, γs,  # first argument added by NILS
+            Nlift, Weng1, nout, yout, nin, yinn,
+            parg[igsigfac], rhofuel
+        )
+        # println("Wwing =", Wwing)
         # Calculate fuel weight if stored in wings
         Wfmax, dxWfmax, rfmax = 0.0, 0.0, 0.0
         if (options.has_wing_fuel)
@@ -555,11 +625,21 @@ function _size_aircraft!(ac; itermax=35,
             rfmax = Wfuelmp / Wfmax
         end
 
+        ##### NILS
+        Wwingpointload = 2.0 * (Wwingpointloadin + Wwingpointloadout)
+        dxWwingpointload = 2.0 * (dxWwingpointloadin + dxWwingpointloadout)
+        ##### NILS
+
         # Update wing properties
         wing.weight = Wwing * rlx + wing.weight * (1.0 - rlx)
         parg[igWfmax] = Wfmax
         # wing.dxW = dxWwing
         parg[igdxWfuel] = dxWfmax * rfmax
+
+        ##### NILS
+        parg[igWwingpointload] = Wwingpointload
+        parg[igdxWwingpointload] = dxWwingpointload
+        ##### NILS
 
         wing.outboard.webs.weight = wing.inboard.webs.weight
         wing.outboard.caps.weight = wing.inboard.caps.weight
@@ -572,18 +652,19 @@ function _size_aircraft!(ac; itermax=35,
         end
 
         # Update wing panel weights
-        wing.inboard.weight = Wsinn * (1.0 + fwadd) + rfmax * Wfinn
-        wing.outboard.weight = Wsout * (1.0 + fwadd) + rfmax * Wfout
-        wing.inboard.dyW = dyWsinn * (1.0 + fwadd) + rfmax * dyWfinn
-        wing.outboard.dyW = dyWsout * (1.0 + fwadd) + rfmax * dyWfout
+        wing.inboard.weight = Wsinn * (1.0 + fwadd) + rfmax * Wfinn + Wwingpointloadin  ##### NILS
+        wing.outboard.weight = Wsout * (1.0 + fwadd) + rfmax * Wfout + Wwingpointloadout  ##### NILS
+        wing.inboard.dyW = dyWsinn * (1.0 + fwadd) + rfmax * dyWfinn + dyWwingpointloadin  ##### NILS
+        wing.outboard.dyW = dyWsout * (1.0 + fwadd) + rfmax * dyWfout + dyWwingpointloadout  ##### NILS
 
-        wing.center.weight = Wscen * (1.0 + fwadd) + rfmax * Wfcen  # line added by NILS for plotting
+        wing.center.weight = Wscen * (1.0 + fwadd) + rfmax * Wfcen  # line added by NILS for plotting  # NILS (TO-DO: IF DECIDED TO ALSO ADD FCS IN WING CENTRE BOX THEN MYST ADD Wwingpointloadcentre HERE)
+        # NILS: no lateral moment arm for centerbox!
 
         #TODO: No reason why above lines shouldnt be inside wing_weights
         # -------------------------------
         #      Tail sizing section
         # -------------------------------
-
+        
         # Set tail CL derivative
         dϵdα = htail.downwash_factor
         tanL = tand(wing.layout.sweep)
@@ -659,7 +740,7 @@ function _size_aircraft!(ac; itermax=35,
         vtail.layout.ηs = vtail.layout.ηo
 
         # HT weight
-        htail.weight, _ = wing_weights!(htail, poh, htail.outboard.λ, htail.inboard.λ,
+        htail.weight, _ = wing_weights!(ac, htail, poh, htail.outboard.λ, htail.inboard.λ,  # first argument added by NILS
             0.0, 0.0, 0, 0.0, 0, 0.0,
             parg[igsigfac], rhofuel)
         
@@ -673,7 +754,7 @@ function _size_aircraft!(ac; itermax=35,
         para[iaCMh1, :] .= CMh1
 
         # VT weight
-        vtail.weight, _ = wing_weights!(vtail, pov, vtail.outboard.λ, vtail.inboard.λ,
+        vtail.weight, _ = wing_weights!(ac, vtail, pov, vtail.outboard.λ, vtail.inboard.λ,  # first argument added by NILS
             0.0, 0.0, 0, 0.0, 0, 0.0,
             parg[igsigfac], rhofuel; n_wings=vtail.ntails)
         # Set VT span
@@ -760,6 +841,13 @@ function _size_aircraft!(ac; itermax=35,
             parg[igxWfuel] = parg[igWfuel] * wing.layout.box_x + parg[igdxWfuel] #Store fuel weight moment
         end
 
+        ##### NILS
+        xwingpointload = wing.layout.box_x + parg[igdxWwingpointload] / parg[igWwingpointload]
+        parg[igxWwingpointload] = parg[igWwingpointload] * wing.layout.box_x + parg[igdxWwingpointload] #Store wing point load weight moment
+        # dxeng2wbox = parg[igdxeng2wbox]  ##### NILS TEMP
+        # parg[igxWwingpointload] = parg[igWwingpointload] * (wing.layout.box_x - dxeng2wbox)  ##### NILS TEMP
+        ##### NILS
+
         # Pitch trim by adjusting Clh or by moving wing
         Wzero = WMTO - parg[igWfuel] #Zero fuel weight
         Wf = para[iafracW, ip] * WMTO - Wzero
@@ -780,7 +868,6 @@ function _size_aircraft!(ac; itermax=35,
         aircraft_drag!(ac, imission, ip, computes_wing_direct)
 
         # L/D and Design point thrust
-        # println("CD = ", para[iaCD,ip])
         LoD = para[iaCL, ip] / para[iaCD, ip]
         gamV = para[iagamV, ip]
         We = para[iafracW, ip] * WMTO
@@ -846,6 +933,10 @@ function _size_aircraft!(ac; itermax=35,
 
         # BFL calculations/ Noise? / Engine perf 
 
+        # println("iterw =", iterw)
+        # println("parg[igWMTO] = ", parg[igWMTO])
+        # error("stop after first iteration")
+
     end
 
     ## Print statements added by NILS after weight-loop convergence reached
@@ -894,7 +985,7 @@ function _size_aircraft!(ac; itermax=35,
     #Check if all engine points have converged
     if check_engine_convergence_failure(pare)
         # @warn "Some engine points did not converge"
-        error("Some engine points did not converge")  # NILS converted this into an error
+        error("Some engine points did not converge")  # NILS converted this into an error to prevent silent failure in loops
     end
     #Warn user if HX effectiveness is overwritten
     check_HX_overwriting(engine.heat_exchangers) 
@@ -925,7 +1016,8 @@ function update_WMTO!(ac, rlx)
            parg[igWtesys] +
            parg[igWftank] +
            landing_gear.nose_gear.weight.W + 
-           landing_gear.main_gear.weight.W
+           landing_gear.main_gear.weight.W +
+           parg[igWwingpointload]  ##### NILS
 
     #update WMTO
     WMTO = rlx * Wsum / (1.0 - ftotadd) + (1.0 - rlx) * WMTO
@@ -942,11 +1034,10 @@ function update_WMTO!(ac, rlx)
     flgmain = landing_gear.main_gear.weight.W / WMTO
     ftesys = parg[igWtesys] / WMTO
     ftank = parg[igWftank] / WMTO
-
-    # println("fwing = $fwing, fstrut = $fstrut, fhtail = $fhtail, fvtail = $fvtail, feng = $feng, ffuel = $ffuel, flgnose = $flgnose, flgmain = $flgmain, ftank = $ftank, ftesys = $ftesys")  # NILS
+    fwingpointload = parg[igWwingpointload] / WMTO  ##### NILS
 
     fsum = fwing + fstrut + fhtail + fvtail + feng + ffuel + fuse.HPE_sys.W +
-           flgnose + flgmain + ftank + ftesys
+           flgnose + flgmain + ftank + ftesys + fwingpointload  ##### NILS
 
     if (fsum >= 1.0)
         @error "Something is wrong!! fsum ≥ 1.0"
@@ -985,8 +1076,13 @@ function update_weights!(ac, rlx)
 
     ftank = parg[igWftank] / WMTO
 
+    fwingpointload = parg[igWwingpointload] / WMTO  ##### NILS
+
     fsum = fwing + fstrut + fhtail + fvtail + feng + ffuel + fuse.HPE_sys.W +
-           flgnose + flgmain + ftank + ftesys
+           flgnose + flgmain + ftank + ftesys + fwingpointload  ##### NILS
+    # println("fsum, fwing, fstrut, fhtail, fvtail, feng, ffuel, fuse.HPE_sys.W,
+    #        flgnose, flgmain, ftank, ftesys, fwingpointload =", fsum, " ", fwing, " ", fstrut, " ", fhtail, " ", fvtail, " ", feng, " ", ffuel, " ", fuse.HPE_sys.W, " ",
+    #        flgnose, " ", flgmain, " ", ftank, " ", ftesys, " ", fwingpointload)
 
     if (fsum ≥ 1.0)
         @error "SOMETHING IS WRONG fsum ≥ 1"
@@ -1006,6 +1102,7 @@ function update_weights!(ac, rlx)
     parg[igWftank] = WMTO * ftank 
 
     parg[igWtesys] = WMTO * ftesys
+    parg[igWwingpointload] = WMTO * fwingpointload  ##### NILS
 end
 
 """

@@ -88,8 +88,26 @@ It sizes the cabin for the design number of passengers.
     - `seats_per_row::Float64`: number of seats per row in main cabin (lower deck if double decker)
 """
 function update_fuse_for_pax!(
-    ac; run_from_within::Bool = false, lcyl::Float64 = 0.0, A_cargo::Float64 = 0.0,  # NILS: note the semicolon separating positional from keyword arguments
+    ac; Vfcs_is_input::Bool = false, run_from_within::Bool = false, lcyl::Float64 = 0.0, A_cargo::Float64 = 0.0,  # NILS: note the semicolon separating positional from keyword arguments
 )  # last three arguments added by NILS
+    """ NILS
+    This function is called only once in read_input.jl prior to sizing the aircraft to
+    establish the required cabin length `fuse.layout.l_cabin_cylinder` (`lcyl`)
+    for a given payload-range requirement I prescribe, which is then kept constant,
+    whereas update_fuse! is called multiple times during sizing to update the overall
+    length of the cylindrical fuselage section
+    `fuse.layout.x_end_cylinder = fuse.layout.x_start_cylinder + nftanks * (lftank + lftoffset) + lcyl`.
+
+    NOTE 1: while it may seem stange that certain dimensional inputs like fuse.layout.x_end_cylinder or
+    fuse.layout.x_end (see read_input.jl) are called in this function and never see the updated values during sizing,
+    those are merely used to define relative distances to be conserved, like that between the APU
+    and the fuselage end (`dxapu2end`). It is IMPORTANT though that the values of x_end_cylinder and
+    x_end in any .toml files are sensible RELATIVE to each other, otherwise the aircraft geometry will be infeasible.
+
+    NOTE 2: I only have to make updates to the fuselage geometry here, not in update_fuse!, because the FCS
+    gets placed within the cabin section of the cylindrical fuselage (between fuse.layout.x_start_cylinder
+    and the aft-fuselage tanks), which is carried into update_fuse! via `lcyl` (cabin length).
+    """
     parg, options, fuse, fuse_tank, wing, htail, vtail, _ = unpack_ac_components(ac)
 
     seat_pitch = fuse.cabin.seat_pitch
@@ -100,21 +118,70 @@ function update_fuse_for_pax!(
     front_seat_offset = fuse.cabin.front_seat_offset
 
     Rfuse = fuse.layout.radius
-    dRfuse = fuse.layout.bubble_lower_downward_shift
-    wfb = fuse.layout.bubble_center_y_offset
+    dRfuse = fuse.layout.bubble_lower_downward_shift  # NILS: zero in my case (see Figure 4 in tasopt.pdf)
+    wfb = fuse.layout.bubble_center_y_offset  # NILS: zero in my case (see Figure 4 in tasopt.pdf)
     nfweb = fuse.layout.n_webs
 
-    # Calculate length occupied by FCS
-    # Vfcs = parg[igVfcsfus]
-    fcs_loc = parg[igfcsfusloc]
+    """ NILS
+    Newton solver for pim2θ in pim2θ - sin pim2θ = K, K = 2S/r^2.
+    In words, by how much must θ be increased to accommodate the
+    FCS without shrinking the current cargo volume? For equal
+    cargo and FCS compartment length, this translates into
+    solving for the circular segment area Afcs + Acargo.
+    # https://en.wikipedia.org/wiki/Circular_segment
+    """
+    function pim2θ_from_area(r, S; tol=1e-12, maxiter=50)
+        S <= 0 && return 0.0  # trivial
+        K = 2S/(r*r)
+        pim2θ = (6K)^(1/3)  # very good initial guess for small K
+        for i in 1:maxiter
+            f = pim2θ - sin(pim2θ) - K
+            abs(f) < tol && return pim2θ
+            df = 1 - cos(pim2θ)
+            if abs(df) < 1e-16
+                pim2θ += 1e-6  # dodge near-zero derivative (rare)
+            else
+                pim2θ -= f/df
+            end
+        end
+        return pim2θ
+    end
+
+    """ NILS
+    Imports and initialisations. Vfcs_is_input == true
+    is not being used currently (aim is to calculate
+    required cabin floor angle and thus -length to
+    maintain a constant cargo volume for a given FCS volume),
+    but I am leaving this function argument in place for future use.
+
+    fcs_loc == 0.0 stands for "underfloor", whereas
+    fcs_loc == 1.0 stands for "rear"
+    to comply with numeric slot `parg = zeros(Float64, igtotal)` in read_input.jl
+    """
+    fcs_loc = ac.nils.fcs_fuselage_location  # parg[igfcsfusloc]
     Afcs = 0.0
     Acargo = 0.0
-    if fcs_loc == 1.0  # NILS: fcs_loc == 0.0 stands for "underfloor", whereas 1.0 stands for "rear" to comply with numeric slot `parg = zeros(Float64, igtotal)` in read_input.jl"
-        lfcs = parg[iglfcsfus]  # NILS
-        Vfcs = lfcs * pi * Rfuse^2  # NILS
-    elseif fcs_loc == 0.0  # NILS: fcs_loc == 0.0 stands for "underfloor", whereas 1.0 stands for "rear" to comply with numeric slot `parg = zeros(Float64, igtotal)` in read_input.jl
-        lfcs = 0.0
-        θ = -parg[igthetafloor]  # NILS (NOTE THE "-" SIGN)
+
+    if Vfcs_is_input == true
+        Vfcs = ac.nils.V_fcs_fuselage  # parg[igVfcsfus]
+        if fcs_loc == 1.0
+            lfcs = Vfcs / (pi * Rfuse^2)  # length of disk with radius Rfuse and volume Vfcs
+        elseif fcs_loc == 0.0
+            lfcs = 0.0  # included in cabin length
+        end
+
+    elseif Vfcs_is_input == false
+        if fcs_loc == 1.0  
+            lfcs = ac.nils.l_fcs_fuselage  # parg[iglfcsfus]
+        elseif fcs_loc == 0.0
+            lfcs = 0.0  # included in cabin length
+            θ = -ac.nils.theta_floor  # parg[igthetafloor]
+            """ NILS
+            (NOTE the "-" to comply with the sign convention in
+            https://mit-lae.github.io/TASOPT.jl/dev/structures/cabin_sizing/#Theory-Double-decker-aircraft-7a29cdcf253b565d ,
+            where angles are measured positive upwards from the fuselage centreline)
+            """
+        end
     end
 
     #Find cabin length by placing seats
@@ -127,38 +194,88 @@ function update_fuse_for_pax!(
         #Store angles
         fuse.cabin.floor_angle_main = xopt[2]
         fuse.cabin.floor_angle_top = find_floor_angles(true, Rfuse, dRfuse, θ1 = xopt[2], h_seat = h_seat, d_floor = d_floor)[2]
+
+        """ NILS
+        I moved the below code block from after this if-else statement to here,
+        because for the single-decker case with no FCS it turned out to yield the
+        same result as the first `find_floor_angles` in src/structures/update_fuse.jl
+        in the original TASOPT.jl repo. Only if fuse.n_decks == 2
+        then paxsize, which is an output of the optimisation, does not get used
+        anywhere else but in the below code block, whereas elseif fuse.n_decks != 2
+        paxsize already got computed, and d_floor, h_seat, bubble_lower_downward_shift,
+        bubble_center_y_offset, and Rfuse are constants.
+        """
+        #Find new cabin length
+        d_floor = fuse.cabin.floor_distance
+        h_seat = fuse.cabin.seat_height 
+        θ = find_floor_angles(false, fuse.layout.radius, fuse.layout.cross_section.bubble_lower_downward_shift, h_seat = h_seat, d_floor=d_floor) #Find the floor angle
+        wcabin = find_cabin_width(fuse.layout.radius, fuse.layout.bubble_center_y_offset, fuse.layout.n_webs, θ, h_seat) #Find cabin width
+        lcyl, _, _ = place_cabin_seats(paxsize, wcabin, seat_pitch = seat_pitch, seat_width = seat_width, 
+            aisle_halfwidth = aisle_halfwidth, front_seat_offset = front_seat_offset) #Size for max pax count
     else
-        # NILS: find change in floor angle to accommodate underfloor FCS
-        if fcs_loc == 1.0  # NILS: fcs_loc == 0.0 stands for "underfloor", whereas 1.0 stands for "rear" to comply with numeric slot `parg = zeros(Float64, igtotal)` in read_input.jl
-            θ = find_floor_angles(false, Rfuse, dRfuse, h_seat = h_seat) #Find the floor angle
-            pim2θ = pi - 2 * (-θ)  # NILS (NOTE the "-" sign - look inside theta_from_area())
-            A_cargo = Rfuse^2 / 2 * (pim2θ - sin(pim2θ))  # NILS
-        elseif fcs_loc == 0.0  # NILS: fcs_loc == 0.0 stands for "underfloor", whereas 1.0 stands for "rear" to comply with numeric slot `parg = zeros(Float64, igtotal)` in read_input.jl
-            # NILS: calculate available cross-sectional area for FCS and cargo given θ
-            ULD = fuse.cabin.unit_load_device
-            ULDdims = UnitLoadDeviceDimensions[ULD]
-            minwidth = ULDdims[2] #Base width
-            c_ULD = minwidth
-            h_ULD = ULDdims[1]
-            dh_ULD = Rfuse - sqrt(Rfuse^2 - c_ULD^2 / 4)
-            θfcs = -asin((Rfuse - dh_ULD - h_ULD) / Rfuse)
-            Afcs = Rfuse^2 / 2 * ((pi + 2 * θ) - sin(pi + 2 * θ)) - (Rfuse^2 / 2 * ((pi + 2 * θfcs) - sin(pi + 2 * θfcs)))
-            Acargo = Rfuse^2 / 2 * ((pi + 2 * θfcs) - sin(pi + 2 * θfcs))
-            # println("c_ULD, h_ULD, dh_ULD, θfcs, Afcs, Acargo = $c_ULD, $h_ULD, $dh_ULD, $θfcs, $Afcs, $Acargo")
+        if Vfcs_is_input == true
+            if (Vfcs == 0.0 || fcs_loc == 1.0 || run_from_within == false)
+                """NILS: calculate floor angle that yields maximum cabin width"""
+                θ = find_floor_angles(false, Rfuse, dRfuse, h_seat = h_seat) #Find the floor angle
+                pim2θ = pi - 2 * (-θ)  # NILS (see above docstring on angle sign convention)
+                A_cargo = Rfuse^2 / 2 * (pim2θ - sin(pim2θ))  # NILS
+                run_from_within = true  # NILS: re-run with updated θ (other conditions apply further down)
+                # NILS: Afcs gets computed when run_from_within = true
+            elseif (Vfcs > 0.0 && fcs_loc == 0.0 && run_from_within == true)
+                """NILS: calculate floor angle that yields same cargo volume as without FCS"""
+                Afcs = Vfcs / lcyl  # NILS: required FCS cross-sectional area is volume divided by cylinder length
+                pim2θ = pim2θ_from_area(Rfuse, A_cargo + Afcs)  # NILS
+                θ = -(pi - pim2θ) / 2  # NILS (see above docstring on angle sign convention)
+                run_from_within = false  # NILS: to avoid infinite recursion
+                # NILS: A_cargo got computed when run_from_within = false
+            end
+        elseif Vfcs_is_input == false
+            if fcs_loc == 1.0
+                """NILS: calculate floor angle that yields maximum cabin width"""
+                θ = find_floor_angles(false, Rfuse, dRfuse, h_seat = h_seat) #Find the floor angle
+                pim2θ = pi - 2 * (-θ)  # NILS (see above docstring on angle sign convention)
+                Afcs = pi * Rfuse^2 / 2  # NILS
+                A_cargo = Rfuse^2 / 2 * (pim2θ - sin(pim2θ))  # NILS: area of circular segment based on https://en.wikipedia.org/wiki/Circular_segment
+            elseif fcs_loc == 0.0
+                """ NILS
+                calculate available cross-sectional area for FCS and cargo given θ.
+                See https://mit-lae.github.io/TASOPT.jl/dev/structures/cabin_sizing/#Theory-Double-decker-aircraft-7a29cdcf253b565d
+                and src/utils/constants.jl for ULD dimensions. For the A320, I should use the "LD3-45" type (see
+                https://www.anacargo.jp/en/int/specification/cm_container.html). See also MinCargoHeightConst(x, fuse).
+                """
+                ULD = fuse.cabin.unit_load_device
+                ULDdims = UnitLoadDeviceDimensions[ULD]
+                minwidth = ULDdims[2] #Base width
+                c_ULD = minwidth  # chord of circular segment (https://en.wikipedia.org/wiki/Circular_segment)
+                h_ULD = ULDdims[1]
+                dh_ULD = Rfuse - sqrt(Rfuse^2 - c_ULD^2 / 4)  # sagitta of circular segment (https://en.wikipedia.org/wiki/Circular_segment)
+                θfcs = -asin((Rfuse - dh_ULD - h_ULD) / Rfuse)  # angle between FCS floor and horizontal (negative downwards)
+                Afcs = Rfuse^2 / 2 * ((pi + 2 * θ) - sin(pi + 2 * θ)) - (Rfuse^2 / 2 * ((pi + 2 * θfcs) - sin(pi + 2 * θfcs)))  # see 4th-Year-Scribbles on GoodNotes from 02.11.2025 (area of circular segment minus)
+                Acargo = Rfuse^2 / 2 * ((pi + 2 * θfcs) - sin(pi + 2 * θfcs))  # see 4th-Year-Scribbles on GoodNotes from 02.11.2025 (area of circular segment minus)
+                # println("c_ULD, h_ULD, dh_ULD, θfcs, Afcs, Acargo = $c_ULD, $h_ULD, $dh_ULD, $θfcs, $Afcs, $Acargo")  # test
+            end
         end
         paxsize = fuse.cabin.exit_limit #maximum number of passengers
         w = find_cabin_width(Rfuse, wfb, nfweb, θ, h_seat) #Cabin width
         lcyl, _, seats_per_row = place_cabin_seats(paxsize, w, seat_pitch = seat_pitch, seat_width = seat_width, 
             aisle_halfwidth = aisle_halfwidth, front_seat_offset = front_seat_offset) #Cabin length
-        # NILS: calculate volume from cross-sectional areas and cylinder length
-        if fcs_loc == 0.0
-            Vfcs = Afcs * lcyl
-            Vcargo = Acargo * lcyl
+        
+        # NILS: calculate underfloor FCS volume and cargo volume from cross-sectional areas and cylinder length
+        Vcargo = Acargo * lcyl
+        if Vfcs_is_input == true
+            nothing
+        elseif Vfcs_is_input == false
+            if fcs_loc == 1.0
+                Vfcs = lfcs * pi * Rfuse^2  # volume of disk with radius Rfuse and length lfcs
+            elseif fcs_loc == 0.0
+                Vfcs = Afcs * lcyl
+            end
         end
     end
 
-    # Log available FCS volume
-    parg[igVfcsfus] = Vfcs  # NILS
+    # NILS: log available FCS volume
+    # parg[igVfcsfus] = Vfcs
+    ac.nils.V_fcs_fuselage = Vfcs
 
     #Useful relative distances to conserve
     dxeng2wbox = parg[igdxeng2wbox] #Distance from engine to wingbox
@@ -171,22 +288,42 @@ function update_fuse_for_pax!(
     #Fraction of cabin length at which wing is located
     wbox_cabin_frac =  (wing.layout.box_x- fuse.layout.x_start_cylinder )/(fuse.layout.x_end_cylinder - fuse.layout.x_start_cylinder) 
 
-    #######################################################################
-    #Update positions and fuselage length
-    # lcyl = lcyl + fuse.cabin.rear_seat_offset #Make cabin longer to leave room in the back
-    lcyl = lcyl + fuse.cabin.rear_seat_offset + lfcs #Make cabin longer to leave room in the back  # lfcs added by NILS
-    #######################################################################
+    # NILS: re-run function to re-size cabin so as to maintain A_cargo
+    if Vfcs_is_input == true
+        if (Vfcs > 0.0 && fcs_loc == 0.0 && run_from_within == true)
+            seats_per_row = update_fuse_for_pax!(
+                ac; run_from_within=run_from_within, lcyl=lcyl, A_cargo=A_cargo,  # NILS: note the semicolon separating positional from keyword arguments
+            )
+        end
+    elseif Vfcs_is_input == false
+        nothing
+    end
 
     #Update positions and fuselage length
-    #######################################################################
-    # fuse.layout.x_end_cylinder = fuse.layout.x_start_cylinder + lcyl + lfcs  # lfcs added by NILS
+    """ NILS
+    It has been found that increasing lcycl itself,
+    as opposed to adding `lfcs` to x_end_cylinder,
+    resulted in a consistent fuselage geometry.
+    """
+    lcyl = lcyl + fuse.cabin.rear_seat_offset + lfcs #Make cabin longer to leave room in the back (lfcs added by NILS)
+
+    #Update positions and fuselage length
     fuse.layout.x_end_cylinder = fuse.layout.x_start_cylinder + lcyl
+
+    # NILS: log longitudinal location of FCS centroid
+    """ NILS
+    The following is correct because, despite the fact that fuse.layout.x_end_cylinder gets
+    updated in update_fuse! (see below), the cabin length `lcyl` and `fuse.layout.x_start_cylinder`
+    remain constant, and both fuselage FCS integration options are located before the tanks.
+
+    #Update positions and fuselage length
+    fuse.layout.x_end_cylinder = fuse.layout.x_start_cylinder + nftanks * (lftank + lftoffset) + lcyl
+    """
     if fcs_loc == 1.0
-        fuse.layout.x_centroid_fcs = fuse.layout.x_end_cylinder - lfcs / 2  # NILS: added to log longitudinal location of FCS centroid
+        fuse.layout.x_centroid_fcs = fuse.layout.x_end_cylinder - lfcs / 2
     elseif fcs_loc == 0.0
-        fuse.layout.x_centroid_fcs = fuse.layout.x_start_cylinder + lcyl / 2  # NILS: added to log longitudinal location of FCS centroid
+        fuse.layout.x_centroid_fcs = fuse.layout.x_start_cylinder + lcyl / 2
     end
-    #######################################################################
 
     #Update wingbox position
     wing.layout.box_x = fuse.layout.x_start_cylinder + wbox_cabin_frac * lcyl
@@ -196,9 +333,7 @@ function update_fuse_for_pax!(
 
     fuse.layout.x_cone_end = fuse.layout.x_pressure_shell_aft + dxshell2conend
     fuse.APU.r = [fuse.layout.x_pressure_shell_aft + dxshell2apu, 0.0,0.0]
-    #######################################################################
-    fuse.layout.x_end = fuse.APU.x + dxapu2end# + lfcs  # lfcs added by NILS
-    #######################################################################
+    fuse.layout.x_end = fuse.APU.x + dxapu2end
     fuse.HPE_sys.r = [fuse.layout.x_cone_end * 0.52484, 0.0, 0.0] #TODO: address this
     
     htail.layout.box_x = fuse.layout.x_cone_end - dxhbox2conend
@@ -209,20 +344,6 @@ function update_fuse_for_pax!(
     fuse.layout.l_cabin_cylinder = lcyl #Store new cabin length
 
     EvaluateCabinProps!(fuse) #Update cabin parameters
-
-    # println("wcabin, θ = $wcabin, $θ")
-    # println("lfcs = $lfcs")
-    # println("lcyl = $lcyl")
-    # println("seats_per_row = $seats_per_row")
-    # println("fuse.layout.radius = $(fuse.layout.radius)")
-
-    # # NILS: re-run function
-    # if (Vfcs > 0.0 && fcs_loc == 0.0 && run_from_within == true)  # NILS: fcs_loc == 0.0 stands for "underfloor", whereas 1.0 stands for "rear" to comply with numeric slot `parg = zeros(Float64, igtotal)` in read_input.jl
-    #     println("Hello world")
-    #     seats_per_row = update_fuse_for_pax!(
-    #         ac; run_from_within=run_from_within, lcyl=lcyl, A_cargo=A_cargo,  # NILS: note the semicolon separating positional from keyword arguments
-    #     )
-    # end
 
     return seats_per_row
 end

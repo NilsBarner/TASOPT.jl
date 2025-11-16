@@ -178,7 +178,7 @@ function aircraft_drag!(ac, imission, ip, computes_wing_direct; Ldebug=false)
 #-     (Mnac+M2)/2 = Mach*rVnace
       rVnLE = max( 2.0*rVnace - pare[ieM2] / max(Mach,0.001) , 0.0 )
       rVnsurf3 = 0.25*(rVnLE+rVnace)*(rVnLE^2+rVnace^2)
-      CDnace = fSnace * Cfnace * rVnsurf3
+      CDnace = fSnace * Cfnace * rVnsurf3  # NILS: this is where nacelle CD is calculated (see tfweightwrap and section 2.14.6 in tasopt.pdf - added FCS volume factored in via fSnace)
       para[iaCDnace] = CDnace
 
 #- - - - - - - - - - - - - - - - - - - - - - - - - - - -

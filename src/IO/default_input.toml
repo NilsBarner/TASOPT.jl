@@ -468,3 +468,17 @@
     weight_model = "basic" #Options are "MD": Mark Drela's original model
                               #   "basic": NF's new model with basic tech
                               #"advanced": NF's new model with advanced tech
+
+[Nils]
+    theta_floor = 0.0
+    unit_load_device = "BulkA220100" #Cargo container for double decker sizing NILS (A220-100 uses bulk cargo, so no LD type - https://www.uldcare.com/uld-tools-and-solutions/uld-types/, see also pages 88-93 - pdf - of A220-ACP-Issue011-00-18Sep2025)
+    custom_weight_delta = 0.0  # added by Nils
+    TR_scale = 1.0
+    tdivc_scale = 1.0
+    V_fcs_nacelle = 0.0
+    sigma_fcs_nacelle = -1.0
+    sigma_fcs = -1.0
+    wing_frac = 0.0
+    nacelle_frac = 1.0
+    fcs_loc = 0.0
+    span_loc = 0.0

@@ -46,6 +46,15 @@ The routine computes the **neutral point (`xNP`), indicating the aircraft's long
 
 """
 function balance_aircraft!(ac, imission, ip, rfuel, rpay, ξpay, opt_trim_var; Ldebug::Bool = false)
+      """ NILS
+      The tank is considered separate to the FCS in nacelle, wing, and fuselage
+      (their weights and moments are lumped into those of their "hosts"),
+      because tank wet weight changes in flight, whereas FCS weight is constant.
+
+      CLUE: search for "strut" in this script and compare where my
+      instances of Wwingpointload, xWwingpointload, and ##### NILS
+      appear to check that I did not miss any!
+      """
       #Unpack aircraft
       parg, _, para, _, options, fuse, fuse_tank, wing, htail, vtail, _, landing_gear = unpack_ac(ac, imission, ip = ip)
 
@@ -60,6 +69,11 @@ function balance_aircraft!(ac, imission, ip, rfuel, rpay, ξpay, opt_trim_var; L
       Weng = parg[igWeng]
 
       xWfuel = parg[igxWfuel]
+
+      ##### NILS
+      Wwingpointload = parg[igWwingpointload]
+      xWwingpointload = parg[igxWwingpointload]
+      ##### NILS
 
       Wtesys = parg[igWtesys]
       xWtesys = parg[igxWtesys]
@@ -104,17 +118,18 @@ function balance_aircraft!(ac, imission, ip, rfuel, rpay, ξpay, opt_trim_var; L
       #---- total weight, weight moment, and derivatives
       W = rpay * Wpay +
           rfuel * Wfuel +
-          Wfuse +
+          Wfuse +  # NILS: includes fuselage point loads
           Wtesys +
           Wftank +
-          Wwing +
+          Wwing +  # NILS: includes wing point loads
           Wstrut +
           Whtail * Sh / Sh1 +
           Wvtail +
-          Weng +
+          Weng +  # NILS: includes engine point loads
           Whpesys +
           Wlgnose +
-          Wlgmain
+          Wlgmain +
+          Wwingpointload  ##### NILS
 
       #  println("rpay = $rpay, rufel = $rfuel;
       #   rpay *Wpay  = $(rpay *Wpay ) 
@@ -142,18 +157,21 @@ function balance_aircraft!(ac, imission, ip, rfuel, rpay, ξpay, opt_trim_var; L
             xWfuel_xwbox = rfuel * Wfuel
       end
 
+      # println("parg[igxeng] = ", parg[igxeng])
       xW = rpay * Wpay * xpay +
            xWfuel +
-           fuse.moment + xWtesys + xWftank +
-           Wwing * wing.layout.box_x + wing.dxW +
+           fuse.moment + xWtesys + xWftank +  # NILS: includes fuselage point load moments
+           Wwing * wing.layout.box_x + wing.dxW +  # NILS: includes wing point load moments
            Wstrut * wing.layout.box_x + wing.strut.dxW +
            (Whtail * htail.layout.box_x + htail.dxW) * Sh / Sh1 +
            Wvtail * vtail.layout.box_x + vtail.dxW +
-           Weng * parg[igxeng] +
+           Weng * parg[igxeng] +  # NILS: includes engine point load moments (although xeng is defined as `parg[igxeng    ] =  wing.layout.box_x - dxeng2wbox #Move engine` in update_fuse.jl, which does not take into account the effect of engine count on longitudinal position, but this is a TASOPT deficiency and not my implementation)
            Whpesys * fuse.HPE_sys.r.x +
-           Wlgmain * (wing.layout.box_x + dxlg) + landing_gear.nose_gear.moment
+           Wlgmain * (wing.layout.box_x + dxlg) + landing_gear.nose_gear.moment +
+           xWwingpointload  ##### NILS (already includes offset moment around wing box center - see size_aircraft.jl)
+      #      Wwingpointload * parg[igxeng]  ##### NILS (already includes offset moment around wing box center - see size_aircraft.jl)
 
-      xW_xwbox = xWfuel_xwbox + Wwing + Wstrut + Wlgmain
+      xW_xwbox = xWfuel_xwbox + Wwing + Wstrut + Wlgmain + Wwingpointload  ##### NILS
 
       xW_Sh = (Whtail * htail.layout.box_x + htail.dxW) / Sh1
 
@@ -358,6 +376,11 @@ function size_htail(ac, paraF, paraB, paraC; Ldebug::Bool = false)
 
       xWfuel = parg[igxWfuel]
 
+      ##### NILS
+      Wwingpointload = parg[igWwingpointload]
+      xWwingpointload = parg[igxWwingpointload]
+      ##### NILS
+
       # Wtshaft = parg[igWtshaft] 
       # Wgen    = parg[igWgen   ] 
       # Winv    = parg[igWinv   ] 
@@ -428,7 +451,8 @@ function size_htail(ac, paraF, paraB, paraC; Ldebug::Bool = false)
                Weng -
                Whpesys -
                Wlgnose -
-               Wlgmain
+               Wlgmain -
+               Wwingpointload  ##### NILS
 
       rfuelC = WfuelC / Wfuel
 
@@ -465,7 +489,8 @@ function size_htail(ac, paraF, paraB, paraC; Ldebug::Bool = false)
                  Weng +
                  Whpesys +
                  Wlgnose +
-                 Wlgmain
+                 Wlgmain +
+                 Wwingpointload  ##### NILS
 
             We_Sh = Whtail_Sh
 
@@ -478,12 +503,15 @@ function size_htail(ac, paraF, paraB, paraC; Ldebug::Bool = false)
                   Weng * xeng +
                   Whpesys * fuse.HPE_sys.r.x +
                   landing_gear.nose_gear.moment +
-                  Wlgmain * (xwbox + dxlg)
+                  Wlgmain * (xwbox + dxlg) +
+                  xWwingpointload  ##### NILS (already includes offset moment around wing box center - see size_aircraft.jl)
+                  # Wwingpointload * xeng  ##### NILS (already includes offset moment around wing box center - see size_aircraft.jl)
 
             xWe_Sh = Whtail_Sh * xhbox + dxWhtail_Sh
             xWe_xw = Wwing +
                      Wstrut +
-                     Wlgmain
+                     Wlgmain +
+                     Wwingpointload  ##### NILS
 
 
             #---- total weight at forward and aft CG limits, and cruise
@@ -640,7 +668,7 @@ function size_htail(ac, paraF, paraB, paraC; Ldebug::Bool = false)
 
       end #end for loop iter
       if (dmax > toler)
-            @warn "`size_htail()`: Pitch not converged. dxwbox,dSh = $dxw, $dSh"
+            @warn "`size_htail()`: Pitch not converged."# dxwbox,dSh = $dxw, $dSh"
       end
 
 
@@ -723,6 +751,11 @@ function CG_limits(ac; Ldebug::Bool = false)
 
       xWfuel = parg[igxWfuel]
 
+      ##### NILS
+      Wwingpointload = parg[igWwingpointload]
+      xWwingpointload = parg[igxWwingpointload]
+      ##### NILS
+
       Wtesys = parg[igWtesys]
       #      xWtesys = parg[igxWtesys]
 
@@ -754,7 +787,8 @@ function CG_limits(ac; Ldebug::Bool = false)
            Weng +
            Whpesys +
            Wlgnose +
-           Wlgmain
+           Wlgmain +
+           Wwingpointload  ##### NILS
 
       xWe = rfuel * xWfuel +
             fuse.moment + parg[igxWtesys] + parg[igxWftank] +
@@ -765,7 +799,9 @@ function CG_limits(ac; Ldebug::Bool = false)
             Weng * parg[igxeng] +
             Whpesys * fuse.HPE_sys.r.x +
             landing_gear.nose_gear.moment +
-            Wlgmain * (wing.layout.box_x + delxw + landing_gear.main_gear.distance_CG_to_landing_gear)
+            Wlgmain * (wing.layout.box_x + delxw + landing_gear.main_gear.distance_CG_to_landing_gear) +
+            xWwingpointload  ##### NILS (already includes offset moment around wing box center - see size_aircraft.jl)
+            # Wwingpointload * parg[igxeng]  ##### NILS (already includes offset moment around wing box center - see size_aircraft.jl)
 
 
       # Some derivation here:        

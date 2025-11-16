@@ -68,8 +68,8 @@ $TYPEDFIELDS
     outboard::WingSection = WingSection() # at strut attachment point
     """Span fraction of inner wing break ("snag")"""
     # ηs::Float64 = 0 
-
-    center::WingSection = WingSection()  # wing center box (added by Nils)
+    """Centre Wing Section (inboard of wing root)"""
+    center::WingSection = WingSection()  # wing center box (added by NILS)
 
     """Fuselage lift carryover factor"""
     fuse_lift_carryover::Float64 = 0.0
@@ -98,6 +98,7 @@ $TYPEDFIELDS
     """Wing attachments weight fraction"""
     weight_frac_attachments::Float64 = 0.0
 
+    """Point load applied to wing"""
     point_loads::Vector{structures.PointLoad} = structures.PointLoad[structures.PointLoad()]  # line added by NILS (vector approach with zero-force/zero-arm default ensures that, in wing_weights.jl, when summing over elements, default in position zero has no effect)
 
 end
@@ -143,6 +144,7 @@ $TYPEDFIELDS
     """Number of Tails"""
     ntails::Float64 = 0
 
+    """Point load applied to tail"""
     point_loads::Vector{structures.PointLoad} = structures.PointLoad[structures.PointLoad()]  # NILS: had to be added as wing_weights.jl also used for horizontal and vertical tail, although no point loads applied there
 end
 

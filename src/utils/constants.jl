@@ -56,5 +56,6 @@ const UnitLoadDeviceDimensions = Dict{String, Vector{Float64}}(
     "LD2" => [1.626, 2.388, 3.124], #Note: two side by side
     "LD3" => [1.626, 3.124, 4.014], #Note: two side by side
     "LD3-45" => [1.143, 1.562, 2.438], 
-    "LD4" => [1.626, 2.438, 2.438]
+    "LD4" => [1.626, 2.438, 2.438],
+    "BulkA220100" => [1.05, 0.847, 2.24], # NILS: page 90 - pdf - of A220-ACP-Issue011-00-18Sep2025 (not a ULD in reality, but can model like one if fix cross-sectional dimensions)
 )

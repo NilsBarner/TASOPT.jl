@@ -20,7 +20,7 @@ export wing_weights!, calculate_centroid_offset!, calculate_centroid_offset, fus
 size_landing_gear!
 
 include(joinpath(__TASOPTroot__,"data_structs/index.inc"))
-# include(joinpath(__TASOPTroot__,"misc/index.inc"))  # NILS
+# include(joinpath(__TASOPTroot__,"misc/index.inc"))  # NILS (outdated - used with old TASOPT version)
 include(joinpath(__TASOPTroot__,"utils/constants.jl"))
 include(joinpath(__TASOPTroot__,"structures/loads.jl"))
 export î, ĵ, k̂, WORLD, Weight

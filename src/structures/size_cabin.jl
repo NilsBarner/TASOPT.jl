@@ -172,7 +172,6 @@ and the floor angular position.
 """
 function find_cabin_width(Rfuse::Float64, wfb::Float64, nfweb::Int64, θ::Float64, h_seat::Float64)
     #Use trigonometry to find cabin width
-    # println("h_seat, Rfuse, θ =", h_seat, ", ", Rfuse, ", ", θ)
     θseat = asin((h_seat + Rfuse * sin(θ)) / Rfuse)  
     cosθ = min(cos(θ), cos(θseat)) #For the effective cabin width, take the minimum of the widths at the floor and at the seat height
     w = nfweb*2*wfb + 2*Rfuse*cosθ

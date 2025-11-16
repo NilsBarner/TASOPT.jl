@@ -11,13 +11,20 @@ include(TASOPT.__TASOPTindices__)
 # to use as a shorthand
 
 # 2) Include input file for desired aircraft/
-#  load default model
-example_ac = load_default_model() # simply a synonym to read_aircraft_model()
-# Alternatively you can load your desired input file 
-# example_ac = read_aircraft_model("../src/IO/input.toml") # MODIFY <path> appropriately
+# #  load default model
+# example_ac = load_default_model() # simply a synonym to read_aircraft_model()
+# # Alternatively you can load your desired input file 
+# # example_ac = read_aircraft_model("../src/IO/input.toml") # MODIFY <path> appropriately
+# example_ac = read_aircraft_model(joinpath(TASOPT.__TASOPTroot__, "../example/atr72600_input.toml")) # MODIFY <path> appropriately
+# example_ac = read_aircraft_model(joinpath(TASOPT.__TASOPTroot__, "../example/atr72600_lh2_input.toml")) # MODIFY <path> appropriately
+example_ac = read_aircraft_model(joinpath(TASOPT.__TASOPTroot__, "../example/a220100_input.toml")) # MODIFY <path> appropriately
+# example_ac = read_aircraft_model(joinpath(TASOPT.__TASOPTroot__, "../example/a220100_lh2_input_org.toml")) # MODIFY <path> appropriately
+# example_ac = read_aircraft_model(joinpath(TASOPT.__TASOPTroot__, "../example/defaults/default_regional.toml")) # MODIFY <path> appropriately
+# example_ac = read_aircraft_model(joinpath(pwd(), "../nils/point_loads/default_regional_cryo.toml")) # MODIFY <path> appropriately
+# example_ac = read_aircraft_model(joinpath(pwd(), "nils", "point_loads", "atr72600_lh2_input.toml"))
 
 # 3) Size aircraft
-time_size_aircraft = @elapsed size_aircraft!(example_ac)
+time_size_aircraft = @elapsed size_aircraft!(example_ac; iter=100) # second argument added by NILS
 println("Time to size aircraft = $time_size_aircraft s")
 
 # 4) Visualize outputs
