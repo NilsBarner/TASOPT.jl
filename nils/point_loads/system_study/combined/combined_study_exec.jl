@@ -109,10 +109,9 @@ function analyse_reference_aircraft(ac_segment::String)
     x_centroid_fuse = ac_ref.fuselage.layout.x_centroid_fcs
 
     # Calculate maximum propulsive power throughout mission
-    T_net_max_ref = maximum(ac_ref.pare[ieFe, :])
-    V_0_max_ref = maximum(ac_ref.pare[ieu0, :])
-    P_prop_max_ref = T_net_max_ref * V_0_max_ref
-    # println("P_prop_max_ref = ", P_prop_max_ref / 1e6)
+    T_net_max_ref = ac_ref.pare[ieFe, :] * ac_ref.parg[igneng]  # NILS: see calculate_thrust_from_ROC!() for proof that pare[ieFe] stands for per-engine thrust
+    V_0_max_ref = ac_ref.pare[ieu0, :]
+    P_prop_max_ref = maximum(T_net_max_ref .* V_0_max_ref)
 
     df = DataFrame(
         index = 0,
@@ -439,10 +438,9 @@ for (i, sigma_fcs) in enumerate(sigma_fcs_range)
             x_centroid_fuse = ac.fuselage.layout.x_centroid_fcs
 
             # Calculate maximum propulsive power throughout mission
-            T_net_max = maximum(ac.pare[ieFe, :])
-            V_0_max = maximum(ac.pare[ieu0, :])
-            P_prop_max = T_net_max * V_0_max
-            # println("P_prop_max = ", P_prop_max / 1e6)
+            T_net_max = ac.pare[ieFe, :] * ac.parg[igneng]  # NILS: see calculate_thrust_from_ROC!() for proof that pare[ieFe] stands for per-engine thrust
+            V_0_max = ac.pare[ieu0, :]
+            P_prop_max = maximum(T_net_max .* V_0_max)
             
             # save results immediately
             push!(index_vec, index)

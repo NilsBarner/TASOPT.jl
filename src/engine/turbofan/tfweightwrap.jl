@@ -1,7 +1,5 @@
 using StaticArrays  # added by NILS
 using ..structures: PointLoad, add_fus_point_load!, add_wing_point_load!, WORLD  # added by NILS (do NOT use `using TASOPT` inside package files!)
-# using ..engine:: Engine
-
 """
     tfweightwrap!(ac)
 
@@ -25,28 +23,24 @@ function tfweightwrap!(ac; Vfcs_is_input::Bool = false)
     neng = parg[igneng]
     
     Weng, Wnace, Webare, W_HXs, Snace1 = tfweight(ac)
-    Weng *= 0.25  # ================ REMOVE ========================= CHANGE!=============================
+    Weng1 = Weng / neng  # NILS: per engine (see `Weng1 = parg[igWeng] / parg[igneng]` in size_aircraft.jl)
 
-    ##### NILS
-    # Extract custom parameters
+    # NILS: Extract custom inputs
     sigma_fcs_nacelle = ac.nils.sigma_fcs_nacelle
     sigma_fcs = ac.nils.sigma_fcs
     wing_frac = ac.nils.wing_frac
     fcs_loc = ac.nils.fcs_loc
     span_loc = ac.nils.span_loc
 
-    # println("--- HELLO WORLD --- sigma_fcs_nacelle, sigma_fcs, wing_frac, nacelle_frac, fcs_loc, span_loc = ", sigma_fcs_nacelle, ", ", sigma_fcs, ", ", wing_frac, ", ", 1.0 - wing_frac, ", ", fcs_loc, ", ", span_loc)
+    # NILS: Calculate maximum propulsive power throughout mission so far
+    T_net_history = ac.pare[ieFe, :] * neng  # NILS: see calculate_thrust_from_ROC!() for proof that pare[ieFe] stands for per-engine thrust
+    V_0_history = ac.pare[ieu0, :]
+    P_prop_max = maximum(T_net_history .* V_0_history)
 
-    # Calculate maximum propulsive power throughout mission so far
-    T_net_max = maximum(ac.pare[ieFe, :])
-    V_0_max = maximum(ac.pare[ieu0, :])
-    P_prop_max = T_net_max * V_0_max
-    # println("Pspec_GT = ", P_prop_max / neng / (Weng / 9.81) * 1e-3, " kW/kg")  # test
-
-    # Calculate FCS weight distribution
+    # NILS: Calculate FCS weight distribution
     if sigma_fcs == -1.0  # GT aircraft
-        W_fcs_nacelle = Weng
-        W_fcs = W_fcs_nacelle * neng
+        W_fcs_nacelle = Weng1  # per nacelle
+        W_fcs = W_fcs_nacelle * neng  # total on aircraft
     else  # FC aircraft
         W_fcs_nacelle = P_prop_max / neng / sigma_fcs_nacelle * 9.81  # per nacelle
         W_fcs = P_prop_max / sigma_fcs * 9.81  # total on aircraft
@@ -55,13 +49,9 @@ function tfweightwrap!(ac; Vfcs_is_input::Bool = false)
     W_fcs_wing = W_fcs_airframe * wing_frac / 2  # per wing half
     W_fcs_fuselage = W_fcs_airframe - 2 * W_fcs_wing  # total in fuselage
 
-    # error("DO NOT PROCEED UNTIL IMPLEMENTED NEW CATEGORY IN read_input.jl AND ALL .toml FILES THAT IMPLEMENTS ALL OF MY CUSTOM PARAMETERS!
-    # RIGHT NOW, I SOMEHOW HAVE TO BE ABLE TO PROVIDE DIFFERENT DATA TYPES TO, SAY, fcs_loc OR span_loc (like a number, string, or dict) WHICH I CAN'T!")
-
     # Add fuselage point load
-    ac.fuselage.point_loads = PointLoad[PointLoad()]
-    Fz_point_fus = -W_fcs_fuselage
-    # println("Fz_point_fus: ", Fz_point_fus)  # test
+    ac.fuselage.point_loads = PointLoad[PointLoad()]  # ABSOLUTELY NEEDED, OTHERWISE GETS ADDED WITH EVERY WEIGHT IERATION IN size_aircraft.jl
+    Fz_point_fus = -W_fcs_fuselage  # total in fuselage
     if fcs_loc isa Number
         if fcs_loc > 0.0 && fcs_loc < 1.0
             _fcs_loc = Dict("frac_len" => fcs_loc)
@@ -79,11 +69,8 @@ function tfweightwrap!(ac; Vfcs_is_input::Bool = false)
     add_fus_point_load!(ac.fuselage, fus_load)
 
     # Add wing point load
-    # println("wing.point_loads: ", wing.point_loads)
-    wing.point_loads = PointLoad[PointLoad()]
-    # println("wing.point_loads: ", wing.point_loads)
-    Fz_point_wing = -W_fcs_wing
-    # """PROCEED HERE - IMPLEMENT SAME LOGIC FOR WING, INCLUDING PLACEMENT AT ENGINE Y-LOCATION!"""
+    wing.point_loads = PointLoad[PointLoad()]  # ABSOLUTELY NEEDED, OTHERWISE GETS ADDED WITH EVERY WEIGHT IERATION IN size_aircraft.jl
+    Fz_point_wing = -W_fcs_wing  # per wing half
     if span_loc isa Number
         if span_loc > 0.0 && span_loc < 1.0
             _span_loc = Dict("frac_span" => span_loc)
@@ -93,45 +80,17 @@ function tfweightwrap!(ac; Vfcs_is_input::Bool = false)
     elseif span_loc isa String
         _span_loc = span_loc
     end
-    # _span_loc = Dict("frac_span" => span_loc)
     wing_load = PointLoad(
         force = SVector(0.0, 0.0, Fz_point_wing),
         r = SVector(0.0, _span_loc, 0.0),
         frame = WORLD
     )
-    add_wing_point_load!(ac.wing, wing_load)  # ======== NILS: UNCOMMENT AGAIN!!!!! ========================= CHANGE!=============================
-    # println("wing.point_loads: ", wing.point_loads)
-    # println()
-
+    add_wing_point_load!(ac.wing, wing_load)
+    
     # Add nacelle point load
-    Fz_point_nacelle = Weng - W_fcs_nacelle
-    # ac.engine.model.point_load = Fz_point_nacelle  # NILS: store point load in engine model
-    ac.engine.point_load = Fz_point_nacelle  # NILS: store point load in engine model
-    # if sigma_fcs_nacelle == 1e30
-    #     # Fz_point_nacelle = 0.0
-    #     Fz_point_nacelle = -Weng
-    # else
-    #     # Fz_point_nacelle = Weng - W_fcs_nacelle
-    #     Fz_point_nacelle = -W_fcs_nacelle
-    # end
-    parg[igWeng] = Weng - Fz_point_nacelle  # second term added by NILS
-    # parg[igWeng] = -Fz_point_nacelle# - W_fcs_wing
-    # parg[igWeng] = Weng# - W_fcs_wing
-    # println(W_fcs_nacelle * neng + W_fcs_wing * 2 + W_fcs_fuselage, " vs ", W_fcs)
-    # println("W_fcs =", W_fcs)
-    # println("Weng =", Weng)
-    # println("Fz_point_fus =", Fz_point_fus)
-    # println("Fz_point_wing =", Fz_point_wing)
-    # println("Fz_point_nacelle =", Fz_point_nacelle)
-    # println("P_prop_max, neng, sigma_fcs_nacelle", P_prop_max, ", ", neng, ", ", sigma_fcs_nacelle)
-    # println("W_fcs_nacelle =", W_fcs_nacelle)
-    # engine_point_load = 0.0
-    #####
-        
-    # # NILS: apply a weight increment to the engine itself
-    # engine_point_load = ac.engine.model.point_load  # NILS
-    # parg[igWeng] = Weng + engine_point_load  # second term added by NILS
-    # println("engine_point_load, Weng INTERNAL =", engine_point_load, ", ", Weng)
+    Fz_point_nacelle = Weng1 - W_fcs_nacelle  # per nacelle
+    ac.engine.point_load = Fz_point_nacelle  # store point load in engine model
+    parg[igWeng] = Weng - neng * Fz_point_nacelle  # second term added by NILS
     parg[igWebare] = Webare
     parg[igWnace] = Wnace
     parg[igWHXs] = W_HXs
@@ -143,7 +102,7 @@ function tfweightwrap!(ac; Vfcs_is_input::Bool = false)
         # NILS: correct nacelle volume (and thus surface area) by FCS volume
         dfan = ac.parg[igdfan]
         rSnace = parg[igrSnace]
-        Vfcs = ac.nils.V_fcs_nacelle  # parg[igVfcsnac]
+        Vfcs = ac.nils.V_fcs_nacelle / neng  # parg[igVfcsnac]
         lfcs = Vfcs / (pi * dfan^2)  # assume available FCS frontal area to equal fan hub area
         Snace = Snace1 * (rSnace + lfcs) / rSnace * neng  # second term in brackets added by NILS
     elseif Vfcs_is_input == false

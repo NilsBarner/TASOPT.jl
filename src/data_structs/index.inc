@@ -180,21 +180,21 @@
       const igWfvent = 121
       const igWHXs = 122
 
-      # const igVfcsnac = 123  # NILS
-      # const igVfcswing = 124  # NILS
-      # const igVfcsfus = 125  # NILS
-      # const igfcsfusloc = 126  # NILS
-      # const igVfcsavnacetot = 127  # NILS
-      # const iglfcsfus = 128  # NILS
-      # const igthetafloor = 129  # NILS
+      # const igVfcsnac = 123  # NILS (no longer used)
+      # const igVfcswing = 124  # NILS (no longer used)
+      # const igVfcsfus = 125  # NILS (no longer used)
+      # const igfcsfusloc = 126  # NILS (no longer used)
+      # const igVfcsavnacetot = 127  # NILS (no longer used)
+      # const iglfcsfus = 128  # NILS (no longer used)
+      # const igthetafloor = 129  # NILS (no longer used)
       const igravidxtank = 123  # NILS
       
-      # const igsigmafcsnac = 131  # NILS
-      # const igsigmafcs = 132  # NILS
-      # const igwingfrac = 133  # NILS
-      # const ignacellefrac = 134  # NILS
-      # const igfcsloc = 135  # NILS
-      # const igspanloc = 136  # NILS
+      # const igsigmafcsnac = 131  # NILS (no longer used)
+      # const igsigmafcs = 132  # NILS (no longer used)
+      # const igwingfrac = 133  # NILS (no longer used)
+      # const ignacellefrac = 134  # NILS (no longer used)
+      # const igfcsloc = 135  # NILS (no longer used)
+      # const igspanloc = 136  # NILS (no longer used)
 
       const igWwingpointload = 124  # NILS
       const igxWwingpointload = 125  # NILS

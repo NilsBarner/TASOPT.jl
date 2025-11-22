@@ -5,8 +5,10 @@ mp3_nozzle_experiment_18032022.ipynb.
 """
 
 import os
+import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot  as plt
+import matplotlib.colors as mcolors
 from cycler import cycler
 from collections import OrderedDict
 from matplotlib.lines import Line2D
@@ -96,5 +98,15 @@ colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 def add_margin(ax, m=0.05):
     for a, s in [(ax.get_xlim, ax.set_xlim), (ax.get_ylim, ax.set_ylim)]:
         lo, hi = a(); r = hi - lo; s(lo - m*r, hi + m*r)
+        
+# Create opaque colour that looks like it had an alpha < 1.0
+# Combine with `mcolors.to_hex("black")` if don't know hex code
+def opaque_color_from_hex(hex_color, alpha=0.5, background='white'):
+    """Return an opaque RGB color that looks like `hex_color` with transparency `alpha`
+    over the given `background`."""
+    rgba_fg = np.array(mcolors.to_rgba(hex_color))
+    rgba_bg = np.array(mcolors.to_rgba(background))
+    blended_rgb = rgba_fg[:3] * alpha + rgba_bg[:3] * (1 - alpha)
+    return mcolors.to_hex(blended_rgb, keep_alpha=False)
 
  

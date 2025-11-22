@@ -27,11 +27,11 @@ N_points = 19
 toml_file_path = ""
 toml_ref_file_path = ""
 if ac_segment == "narrowbody"
-    global toml_file_path = joinpath(pwd(), "example", "a220100_lh2_input.toml")
-    global toml_ref_file_path = joinpath(pwd(), "example", "a220100_lh2_input_org.toml")
+    global toml_file_path = joinpath(pwd(), "example", "a220100", "a220100_lh2_input.toml")
+    global toml_ref_file_path = joinpath(pwd(), "example", "a220100", "a220100_lh2_input_org.toml")
 elseif ac_segment == "regional"
-    global toml_file_path = joinpath(pwd(), "example", "atr72600_lh2_input.toml")
-    global toml_ref_file_path = joinpath(pwd(), "example", "atr72600_lh2_input_org.toml")
+    global toml_file_path = joinpath(pwd(), "example", "atr72600", "atr72600_lh2_input.toml")
+    global toml_ref_file_path = joinpath(pwd(), "example", "atr72600", "atr72600_lh2_input_org.toml")
 end
 
 ###
@@ -40,23 +40,8 @@ function analyse_reference_aircraft(ac_segment::String)
 
     # Baseline LH2 aircraft
 
-    # # Set all point loads applied via .toml file to 0
+    # Set all point loads applied via .toml file to 0
     toml_data = TOML.parsefile(toml_ref_file_path)
-    # toml_data["Propulsion"]["number_of_engines"] = 2
-    # toml_data["Propulsion"]["Turbomachinery"]["HTR_fan"] = 0.3
-    # toml_data["Fuselage"]["l_fcs_fuselage"] = 0.0
-    # toml_data["Fuselage"]["Geometry"]["unit_load_device"] = "LD3-45"  # NILS: "LD3" is too big (see src/utils/constants.jl)
-    # toml_data["Fuselage"]["Geometry"]["theta_floor"] = 0.0  # [deg]
-    # toml_data["Fuselage"]["fcs_fuselage_location"] = 1.0  # NILS: fcs_loc == 0.0 stands for "underfloor", whereas 1.0 stands for "rear" to comply with numeric slot `parg = zeros(Float64, igtotal)` in read_input.jl"
-    # toml_data["Wing"]["AR"] = 10.1
-    # toml_data["Wing"]["tdivc_scale"] = 1.0
-    # toml_data["Wing"]["TR_scale"] = 1.0
-    # toml_data["Wing"]["has_strut"] = false
-    # toml_data["Fuselage"]["Geometry"]["radius"] = 100 * 0.0254  # [m]
-    # toml_data["Propulsion"]["Weight"]["custom_weight_delta"] = 0.0  # point load at engine location on wing
-    # open(toml_file_path, "w") do file
-    #     TOML.print(file, toml_data)
-    # end
 
     # Read model inputs
     global ac_ref = read_aircraft_model(toml_ref_file_path)
@@ -70,7 +55,7 @@ function analyse_reference_aircraft(ac_segment::String)
     TASOPT.structures.add_fus_point_load!(ac_ref.fuselage, fus_load)
 
     # Size aircraft
-    size_aircraft!(ac_ref, iter=50, printiter=false)  # disabled default iteration print-outs to console
+    size_aircraft!(ac_ref, iter=100, printiter=false)  # disabled default iteration print-outs to console
 
     # Print summary data
     # summary(ac_ref)
@@ -100,22 +85,21 @@ function analyse_reference_aircraft(ac_segment::String)
     x_centroid_fuse = ac_ref.fuselage.layout.x_centroid_fcs
 
     # Calculate maximum propulsive power throughout mission
-    T_net_max_ref = maximum(ac_ref.pare[ieFe, :])
-    V_0_max_ref = maximum(ac_ref.pare[ieu0, :])
-    P_prop_max_ref = T_net_max_ref * V_0_max_ref
-    # println("P_prop_max_ref = ", P_prop_max_ref / 1e6)
+    T_net_max_ref = ac_ref.pare[ieFe, :] * ac_ref.parg[igneng]  # NILS: see calculate_thrust_from_ROC!() for proof that pare[ieFe] stands for per-engine thrust
+    V_0_max_ref = ac_ref.pare[ieu0, :]
+    P_prop_max_ref = maximum(T_net_max_ref .* V_0_max_ref)
 
     df = DataFrame(
         index = 0.0,
         fcs_loc = "NA",
         radius = toml_data["Fuselage"]["Geometry"]["radius"],
         AR = toml_data["Wing"]["AR"],
-        tdivc_scale = toml_data["Wing"]["tdivc_scale"],
+        tdivc_scale = toml_data["Nils"]["tdivc_scale"],
         N_eng = toml_data["Propulsion"]["number_of_engines"],
         HTR_f = toml_data["Propulsion"]["Turbomachinery"]["HTR_fan"],
-        l_fcs = toml_data["Fuselage"]["l_fcs_fuselage"],
-        theta_floor = toml_data["Fuselage"]["Geometry"]["theta_floor"],
-        fcs_fuselage_location = toml_data["Fuselage"]["fcs_fuselage_location"],
+        l_fcs = toml_data["Nils"]["l_fcs_fuselage"],
+        theta_floor = toml_data["Nils"]["theta_floor"],
+        fcs_fuselage_location = toml_data["Nils"]["fcs_fuselage_location"],
         has_strut = toml_data["Wing"]["has_strut"],
 
         CDS = ac_ref.wing.layout.S * ac_ref.para[iaCD, ipcruise1],
@@ -133,7 +117,6 @@ function analyse_reference_aircraft(ac_segment::String)
         length = ac_ref.fuselage.layout.x_end,
         P_prop_max = P_prop_max_ref,
 
-        # Wto = ac_ref.parg[igWMTO],
         Wfuse = ac_ref.fuselage.weight,
         Wwing = ac_ref.wing.weight,
         Whtail = ac_ref.htail.weight,
@@ -146,7 +129,6 @@ function analyse_reference_aircraft(ac_segment::String)
         Wwingoutboard = ac_ref.wing.outboard.weight,
 
         CLS = ac_ref.wing.layout.S * ac_ref.para[iaCL, ipcruise1],
-        # CDS = ac_ref.wing.layout.S * ac_ref.para[iaCD, ipcruise1],
         CDfuseS = ac_ref.wing.layout.S * ac_ref.para[iaCDfuse, ipcruise1],
         CDiS = ac_ref.wing.layout.S * ac_ref.para[iaCDi, ipcruise1],
         CDwingS = ac_ref.wing.layout.S * ac_ref.para[iaCDwing, ipcruise1],
@@ -156,7 +138,7 @@ function analyse_reference_aircraft(ac_segment::String)
         eta_grav_tank = ac_ref.parg[igravidxtank],  # extract LH2 tank gravimetric efficiency
     )
 
-    CSV.write("volume_results_narrowbody_ref_111125.csv", df)  # fasts
+    CSV.write("volume_results_narrowbody_ref_191125.csv", df)  # fasts
 
     return ac_ref, Weng_single_ref
 
@@ -172,19 +154,16 @@ function run_study()
 
     ###
 
-
-    P_fcs = 20e6  # [W] total FCS power
-
     # Set all point loads applied via .toml file to 0
     toml_data = TOML.parsefile(toml_ref_file_path)
     radius_ref = toml_data["Fuselage"]["Geometry"]["radius"]
     AR_ref = toml_data["Wing"]["AR"]
-    tdivc_scale_ref = toml_data["Wing"]["tdivc_scale"]
+    tdivc_scale_ref = toml_data["Nils"]["tdivc_scale"]
     N_eng_ref = toml_data["Propulsion"]["number_of_engines"]
     HTR_f_ref = toml_data["Propulsion"]["Turbomachinery"]["HTR_fan"]
     l_fcs_ref = 0.0
     theta_floor_ref = 0.0  # [deg]
-    fcs_fuselage_location_ref = toml_data["Fuselage"]["fcs_fuselage_location"]
+    fcs_fuselage_location_ref = toml_data["Nils"]["fcs_fuselage_location"]
     has_strut_ref = false
 
     fcs_locs = ["nacelle", "wing", "fuselage"]
@@ -209,14 +188,6 @@ function run_study()
     HTRf_range = sort(unique(vcat(Float64.(HTRf_range), Float64(HTR_f_ref))))
     l_fcs_range = sort(unique(vcat(Float64.(l_fcs_range), Float64(l_fcs_ref))))
     theta_floor_range = sort(unique(vcat(Float64.(theta_floor_range), Float64(theta_floor_ref))))
-    # fcs_locs = ["nacelle"]
-    # radius_range = [radius_ref]
-    # AR_range = [AR_ref]
-    # tdivc_scale_range = [tdivc_scale_ref]
-    # Neng_range = [2]
-    # HTRf_range = [HTR_f_ref]
-    # Vspec_range = [Vspec_ref]
-    # fcs_fuselage_locations = [0.0]
 
     # result vectors
     index_vec = Vector{NTuple{10,Int}}()
@@ -342,9 +313,6 @@ function run_study()
                                                     _q, has_strut = findfirst(==(has_strut_ref), strut_bools), has_strut_ref
                                                 end
 
-                                                # println("AR, AR_ref, AR_range = $AR, $AR_ref, $AR_range")
-                                                # error("Stop here.")
-
                                                 ###
 
                                                 # Write engine point loads to .toml file
@@ -352,34 +320,35 @@ function run_study()
                                                 toml_data["Propulsion"]["number_of_engines"] = N_eng
                                                 toml_data["Propulsion"]["Turbomachinery"]["HTR_fan"] = HTR_f
                                                 if fcs_loc == "nacelle"
-                                                    toml_data["Fuselage"]["l_fcs_fuselage"] = 0.0
-                                                    toml_data["Fuselage"]["Geometry"]["theta_floor"] = 0.0  # [deg]
+                                                    toml_data["Nils"]["l_fcs_fuselage"] = 0.0
+                                                    toml_data["Nils"]["theta_floor"] = 0.0  # [deg]
                                                     toml_data["Wing"]["has_strut"] = false
                                                 elseif fcs_loc == "wing"                                                
-                                                    toml_data["Fuselage"]["l_fcs_fuselage"] = 0.0
-                                                    toml_data["Fuselage"]["Geometry"]["theta_floor"] = 0.0  # [deg]
+                                                    toml_data["Nils"]["l_fcs_fuselage"] = 0.0
+                                                    toml_data["Nils"]["theta_floor"] = 0.0  # [deg]
                                                     toml_data["Wing"]["has_strut"] = has_strut
                                                 elseif fcs_loc == "fuselage"
-                                                    toml_data["Fuselage"]["l_fcs_fuselage"] = l_fcs
-                                                    toml_data["Fuselage"]["Geometry"]["theta_floor"] = theta_floor  # [deg]
-                                                    toml_data["Fuselage"]["fcs_fuselage_location"] = fcs_fuselage_location  # NILS: fcs_loc == 0.0 stands for "underfloor", whereas 1.0 stands for "rear" to comply with numeric slot `parg = zeros(Float64, igtotal)` in read_input.jl"
+                                                    toml_data["Nils"]["l_fcs_fuselage"] = l_fcs
+                                                    toml_data["Nils"]["theta_floor"] = theta_floor  # [deg]
+                                                    toml_data["Nils"]["fcs_fuselage_location"] = fcs_fuselage_location  # NILS: fcs_loc == 0.0 stands for "underfloor", whereas 1.0 stands for "rear" to comply with numeric slot `parg = zeros(Float64, igtotal)` in read_input.jl"
                                                     toml_data["Wing"]["has_strut"] = false
                                                 end
                                                 toml_data["Wing"]["AR"] = AR
-                                                toml_data["Wing"]["tdivc_scale"] = tdivc_scale
-                                                toml_data["Wing"]["TR_scale"] = 1.0
+                                                toml_data["Nils"]["tdivc_scale"] = tdivc_scale
+                                                toml_data["Nils"]["TR_scale"] = 1.0
                                                 toml_data["Fuselage"]["Geometry"]["radius"] = radius
                                                 open(toml_file_path, "w") do file
                                                     TOML.print(file, toml_data)
                                                 end
 
-                                                # Read model inputs
-                                                global ac = read_aircraft_model(toml_file_path)  # global needed so updates available in outer scope
-                                            
                                                 # (wrap in try/catch as before)
                                                 try
+
+                                                    # Read model inputs
+                                                    global ac = read_aircraft_model(toml_file_path)  # global needed so updates available in outer scope
+
                                                     # size_aircraft! and get ac
-                                                    size_aircraft!(ac, iter=50, printiter=false)
+                                                    size_aircraft!(ac, iter=100, printiter=false)
 
                                                     # Calculate wing box centroid location
                                                     xw, yw, zw = compile_wingbox_coordinates(ac)
@@ -401,10 +370,9 @@ function run_study()
                                                     x_centroid_fuse = ac.fuselage.layout.x_centroid_fcs
 
                                                     # Calculate maximum propulsive power throughout mission
-                                                    T_net_max = maximum(ac.pare[ieFe, :])
-                                                    V_0_max = maximum(ac.pare[ieu0, :])
-                                                    P_prop_max = T_net_max * V_0_max
-                                                    # println("P_prop_max = ", P_prop_max / 1e6)
+                                                    T_net_max = ac.pare[ieFe, :] * ac.parg[igneng]  # NILS: see calculate_thrust_from_ROC!() for proof that pare[ieFe] stands for per-engine thrust
+                                                    V_0_max = ac.pare[ieu0, :]
+                                                    P_prop_max = maximum(T_net_max .* V_0_max)
                                                     
                                                     # save results immediately
                                                     push!(index_vec, (_h,_i,_j,_k,_l,_m,_n,_o,_p,_q))
@@ -540,4 +508,4 @@ end
 
 df = run_study()
 
-CSV.write("volume_results_narrowbody_111125.csv", df)  # fasts
+CSV.write("volume_results_narrowbody_191125.csv", df)  # fasts

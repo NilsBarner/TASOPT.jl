@@ -94,7 +94,7 @@
 [Mission]
     N_missions = 1 # Number of missions to be modeled (first mission is the design mission)
                                 
-    range = "2200.0 nmi" # "3285 nmi" # Design Range + second mission range NILS (page 209 - pdf - of A220-ACP-Issue011-00-18Sep2025; vertical red line)
+    range = "2200.0 nmi" # "3424 nmi" # Design Range + second mission range NILS (page 209 - pdf - of A220-ACP-Issue011-00-18Sep2025; vertical red line)
 
     payload = ["100 pax"] # Mission payload; pax can be used as a unit of weight.
                                         # Weight per pax also specified (215 lbf/pax is std)
@@ -152,7 +152,7 @@
 
 [Fuselage.Geometry]
     number_of_bubbles = 1  # SingleBubble or MultiBubble Designs
-    radius = 2.25 # Fuselage radius NILS (C-Series_CS100_Factsheet201607_EN) NILS (increased from 1.85 m in by factor 100/77 from default_cryo.toml/default_input.toml - this turned out a bit too thick so reduced to 2.25 m)
+    radius = 1.85 # Fuselage radius NILS (C-Series_CS100_Factsheet201607_EN) NILS (increased from 1.85 m in by factor 100/77 from default_cryo.toml/default_input.toml - this turned out a bit too thick so reduced to 2.25 m)
     dRadius = "0 m" # Downward shift of lower bubbles
     y_offset = 0.0         # y offset of bubble center
     floor_depth = "6.0 in" # depth of floor beams
@@ -187,7 +187,6 @@
     x_pressure_shell_aft = "27.10135336310732 m" # MOVED 4 m AFT from 23.10135336310732 m NILS (measured from page 76 - pdf - of A220-ACP-Issue011-00-18Sep2025)
     x_cone_end           = "31.851999999999997 m" # NILS (subtracted 10 ft from below)
     x_end                = "34.9 m" # NILS (measured from page 76 - pdf - of A220-ACP-Issue011-00-18Sep2025)
-    theta_floor = 0.0
     unit_load_device = "BulkA220100" #Cargo container for double decker sizing NILS (A220-100 uses bulk cargo, so no LD type - https://www.uldcare.com/uld-tools-and-solutions/uld-types/, see also pages 88-93 - pdf - of A220-ACP-Issue011-00-18Sep2025)
     
 # Power systems and landing gear locations
@@ -198,7 +197,7 @@
     x_fixed_weight = "7ft" #Cockpit/ pilots etc NILS (default value in absence of better estimate)
 
 # Engine positions
-    x_engines = "9.784117156132991 m" # NILS (measured from page 76 - pdf - of A220-ACP-Issue011-00-18Sep2025)
+    x_engines = "9.784117156132991 m" # NILS (measured from page 76 - pdf - of A220-ACP-Issue011-00-18Sep2025 - INCREASED FROM 9.784117156132991 m TO 11.784117156132991 m ON 17.11.2025)
     y_critical_engines = "5.468353799279845 m" # y location of engines that would cause max yaw NILS (measured from page 75 - pdf - of A220-ACP-Issue011-00-18Sep2025)
 
 
@@ -261,8 +260,6 @@
 
     # Airfoil data (Should be stored in src/airfoil_data/)
     airfoil = "C.air" # NILS: keep this airfoil family for now, although the "Cl.air" family (see src/airfoil_data/README) may be more suitable for non-transonic wings
-    TR_scale = 1.0
-    tdivc_scale = 1.0
 
 [Wing.Aero]
     fuselage_lift_carryover_loss_factor = -0.3

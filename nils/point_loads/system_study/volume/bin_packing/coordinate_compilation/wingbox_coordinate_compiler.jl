@@ -1,3 +1,8 @@
+""" This scrip calculate the x-y-z coordinates of the wing box
+for plotting and bin packing purposes. It is based on stickfig()
+in src/IO/output_plots.jl and scales the wing planform to the
+wing box planform as described in the below code."""
+
 export compile_wingbox_coordinates
 
 function compile_wingbox_coordinates(ac::aircraft)
@@ -16,6 +21,15 @@ function compile_wingbox_coordinates(ac::aircraft)
     cs = wing.layout.root_chord*wing.inboard.λ
     ct = wing.layout.root_chord*wing.outboard.λ
 
+    # NILS: Go from wing chords to wing box chords
+    # NOTE that, while wing.center.cross_section.width_to_chord is defined
+    # perpendicular to flow, for the scaling from wing to wing box chord
+    # it does not matter as both get scaled by the same factor cosd(wing.layout.sweep)
+    # See (164) and Figure 7 in tasopt.pdf, and calc_sparbox_internal_area() in wing_weights.jl.
+    co *= wing.center.cross_section.width_to_chord
+    cs *= wing.inboard.cross_section.width_to_chord
+    ct *= wing.outboard.cross_section.width_to_chord
+
     sweep = wing.layout.sweep
     λs = wing.inboard.λ
     λt = wing.outboard.λ
@@ -24,8 +38,12 @@ function compile_wingbox_coordinates(ac::aircraft)
     bs = wing.layout.break_span
     b  = wing.layout.span
 
+    # NILS: go from wing thickness to wing box thickness
+    # I will here make the simplifying assumption of a
+    # rectangular cross-section as opposed to one where the
+    # "[...] height is assumed to taper off quadratically to
+    # a fraction rh at the webs, [...]" (page 34 in tasopt.pdf).
     web_height_s = wing.inboard.cross_section.web_to_box_height * wing.inboard.cross_section.thickness_to_chord * co
-    # cap_width_o = wing.inboard.cross_section.width_to_chord * co
 
     xax = 0.40
     xcLE = -xax
@@ -74,7 +92,7 @@ function compile_wingbox_coordinates(ac::aircraft)
     yw[11] = yw[5]
     yw[12] = yw[6]
 
-    #Z locations of wing vertices
+    #Z locations of wing vertices (added by NILS)
     zw[1] = 0
     zw[2] = 0
     zw[3] = 0

@@ -524,3 +524,18 @@
 [Propulsion.HeatExchangers]
 
 [Nils]
+    theta_floor = 0.0
+    engine_point_load = 0.0
+    TR_scale = 1.0
+    tdivc_scale = 1.0
+    V_fcs_nacelle = 0.0
+    sigma_fcs_nacelle = -1.0
+    sigma_fcs = -1.0
+    wing_frac = 0.0
+    nacelle_frac = 1.0
+    fcs_loc = 0.0
+    span_loc = 0.0
+    V_fcs_fuselage = 0.0
+    l_fcs_fuselage = 0.0
+    fcs_fuselage_location = 1.0
+    V_fcs_wing = 0.0

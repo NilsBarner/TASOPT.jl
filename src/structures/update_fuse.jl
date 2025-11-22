@@ -223,7 +223,11 @@ function update_fuse_for_pax!(
                 # NILS: Afcs gets computed when run_from_within = true
             elseif (Vfcs > 0.0 && fcs_loc == 0.0 && run_from_within == true)
                 """NILS: calculate floor angle that yields same cargo volume as without FCS"""
-                Afcs = Vfcs / lcyl  # NILS: required FCS cross-sectional area is volume divided by cylinder length
+                # Afcs = Vfcs / lcyl  # NILS: required FCS cross-sectional area is volume divided by cylinder length; inaccurate for two fuselage FCS compartments separated by center wing box
+                ###
+                lfcs = (lcyl - wing.layout.root_chord * wing.center.cross_section.width_to_chord)  # see wingbox_coordinate_compiler.jl, and (164) and Figure 7 in tasopt.pdf
+                Afcs = Vfcs / lfcs  # NILS: required FCS cross-sectional area is volume divided by usable FCS length
+                ###
                 pim2θ = pim2θ_from_area(Rfuse, A_cargo + Afcs)  # NILS
                 θ = -(pi - pim2θ) / 2  # NILS (see above docstring on angle sign convention)
                 run_from_within = false  # NILS: to avoid infinite recursion
@@ -261,14 +265,33 @@ function update_fuse_for_pax!(
             aisle_halfwidth = aisle_halfwidth, front_seat_offset = front_seat_offset) #Cabin length
         
         # NILS: calculate underfloor FCS volume and cargo volume from cross-sectional areas and cylinder length
-        Vcargo = Acargo * lcyl
+        # Vcargo = Acargo * lcyl  # inaccurate for two fuselage FCS compartments separated by center wing box
+        lcargo = (lcyl - wing.layout.root_chord * wing.center.cross_section.width_to_chord)  # see wingbox_coordinate_compiler.jl, and (164) and Figure 7 in tasopt.pdf
+        Vcargo = Acargo * lcargo
         if Vfcs_is_input == true
             nothing
         elseif Vfcs_is_input == false
             if fcs_loc == 1.0
                 Vfcs = lfcs * pi * Rfuse^2  # volume of disk with radius Rfuse and length lfcs
             elseif fcs_loc == 0.0
-                Vfcs = Afcs * lcyl
+                # Vfcs = Afcs * lcyl  # inaccurate for two fuselage FCS compartments separated by center wing box
+                """NILS: calculate combined volume of two fuselage FC compartments, where
+                the forward comparment starts at fuse.layout.x_start_cylinder and ends at
+                wing.layout.box_x - wing.layout.root_chord * wing.center.cross_section.width_to_chord / 2
+                (wing box location minus half wing box root chord - see Figure 7 in tasopt.pdf),
+                and the aft compartment ends at fuse.layout.x_end_cylinder and starts at
+                wing.layout.box_x + wing.layout.root_chord * wing.center.cross_section.width_to_chord / 2
+                (wing box location minus half wing box root chord - see Figure 7 in tasopt.pdf).
+                """
+                lfcs = (lcyl - wing.layout.root_chord * wing.center.cross_section.width_to_chord)  # see wingbox_coordinate_compiler.jl, and (164) and Figure 7 in tasopt.pdf
+                Vfcs = Afcs * lfcs
+                lfcs_front = (wing.layout.box_x - wing.layout.root_chord * wing.center.cross_section.width_to_chord / 2) - fuse.layout.x_start_cylinder
+                Vfcs_front = Afcs * lfcs_front
+                lfcs_aft = fuse.layout.x_end_cylinder - (wing.layout.box_x + wing.layout.root_chord * wing.center.cross_section.width_to_chord / 2)
+                Vfcs_aft = Afcs * lfcs_aft
+                # Vfcs = Vfcs_front + Vfcs_aft
+                println("Vfcs_front, Vfcs_aft, Vfcs_front + Vfcs_aft, Vfcs = $Vfcs_front, $Vfcs_aft,  $(Vfcs_front + Vfcs_aft), $Vfcs")
+                ###
             end
         end
     end
@@ -322,7 +345,18 @@ function update_fuse_for_pax!(
     if fcs_loc == 1.0
         fuse.layout.x_centroid_fcs = fuse.layout.x_end_cylinder - lfcs / 2
     elseif fcs_loc == 0.0
-        fuse.layout.x_centroid_fcs = fuse.layout.x_start_cylinder + lcyl / 2
+        # fuse.layout.x_centroid_fcs = fuse.layout.x_start_cylinder + lcyl / 2  # inaccurate for two fuselage FCS compartments separated by center wing box
+        """NILS: calculate combined centroid of two fuselage FC compartments, where
+        the forward comparment starts at fuse.layout.x_start_cylinder and ends at
+        wing.layout.box_x - wing.layout.root_chord * wing.center.cross_section.width_to_chord / 2
+        (wing box location minus half wing box root chord - see Figure 7 in tasopt.pdf),
+        and the aft compartment ends at fuse.layout.x_end_cylinder and starts at
+        wing.layout.box_x + wing.layout.root_chord * wing.center.cross_section.width_to_chord / 2
+        (wing box location minus half wing box root chord - see Figure 7 in tasopt.pdf).
+        """
+        x_centroid_fcs_front = fuse.layout.x_start_cylinder + ((wing.layout.box_x - wing.layout.root_chord * wing.center.cross_section.width_to_chord / 2) - fuse.layout.x_start_cylinder) / 2
+        x_centroid_fcs_aft = fuse.layout.x_end_cylinder - (fuse.layout.x_end_cylinder - (wing.layout.box_x + wing.layout.root_chord * wing.center.cross_section.width_to_chord / 2)) / 2
+        fuse.layout.x_centroid_fcs = (x_centroid_fcs_front * Vfcs_front + x_centroid_fcs_aft * Vfcs_aft) / Vfcs
     end
 
     #Update wingbox position

@@ -15,11 +15,13 @@ from shapely import Polygon
 
 from matplotlib_custom_settings import *
 
-# df = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'volume_results_narrowbody_newesttttt.csv'))
-# df_ref = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'volume_results_narrowbody_ref_newest.csv'))
+# df = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'data', 'volume_results_narrowbody_newesttttt.csv'))
+# df_ref = pd.read_csv(os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'volume', 'data', 'volume_results_narrowbody_ref_newest.csv'))
 
-df = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_101125.csv'))
-df_ref = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_ref_101125.csv'))
+# df = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_101125.csv'))
+# df_ref = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_ref_101125.csv'))
+df = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_191125.csv'))
+df_ref = pd.read_csv(os.path.join(os.getcwd(), 'volume_results_narrowbody_ref_191125.csv'))
 
 #%%
 
@@ -36,77 +38,6 @@ l_fcs_unique = np.sort(df["l_fcs"].unique())
 theta_floor_unique = np.sort(df["theta_floor"].unique())
 fcs_fuselage_location_unique = np.sort(df["fcs_fuselage_location"].unique())
 has_strut_unique = np.sort(df["has_strut"].unique())
-
-# # Create 2D coordinate grids
-# fcs_loc_grid, radius_grid, AR_grid, tdivc_scale_grid, N_eng_grid, HTR_f_grid, Vspec_grid, fcs_fuselage_location_grid, has_strut_grid = np.meshgrid(
-#     fcs_loc_unique, radius_unique, AR_unique, tdivc_scale_unique, N_eng_unique, HTR_f_unique, Vspec_unique, fcs_fuselage_location_unique, has_strut_unique, indexing="ij"
-# )
-
-# # Create shape tuple for reshaping
-# shape = (
-#     len(fcs_loc_unique),
-#     len(radius_unique),
-#     len(AR_unique),
-#     len(tdivc_scale_unique),
-#     len(N_eng_unique),
-#     len(HTR_f_unique),
-#     len(Vspec_unique),
-#     len(fcs_fuselage_location_unique),
-#     len(has_strut_unique),
-    
-# )
-
-# # Create index mapping for each dimension
-# fcs_loc_idx = {v: i for i, v in enumerate(fcs_loc_unique)}
-# radius_idx = {v: i for i, v in enumerate(radius_unique)}
-# AR_idx = {v: i for i, v in enumerate(AR_unique)}
-# tdivc_scale_idx = {v: i for i, v in enumerate(tdivc_scale_unique)}
-# N_eng_idx = {v: i for i, v in enumerate(N_eng_unique)}
-# HTR_f_idx = {v: i for i, v in enumerate(HTR_f_unique)}
-# Vspec_idx = {v: i for i, v in enumerate(Vspec_unique)}
-# fcs_fuselage_location_idx = {v: i for i, v in enumerate(fcs_fuselage_location_unique)}
-# has_strut_idx = {v: i for i, v in enumerate(has_strut_unique)}
-
-# # Initialize empty arrays
-# dtype = np.float32
-# CDS_grid = np.full(shape, np.nan, dtype=dtype)
-# WMTO_grid = np.full(shape, np.nan, dtype=dtype)
-# Vol_wing_grid = np.full(shape, np.nan, dtype=dtype)
-# PFEI_grid = np.full(shape, np.nan, dtype=dtype)
-# seats_abreast_grid = np.full(shape, np.nan, dtype=dtype)
-# Vol_nacelle_grid = np.full(shape, np.nan, dtype=dtype)
-# y_centroid_wing_grid = np.full(shape, np.nan, dtype=dtype)
-# L_fuse_grid = np.full(shape, np.nan, dtype=dtype)
-# y_centroid_nacelles_grid = np.full(shape, np.nan, dtype=dtype)
-# span_grid = np.full(shape, np.nan, dtype=dtype)
-
-# # Populate arrays
-# for _, row in df.iterrows():
-#     h = fcs_loc_idx[row["fcs_loc"]]
-#     i = radius_idx[row["radius"]]
-#     j = AR_idx[row["AR"]]
-#     k = tdivc_scale_idx[row["tdivc_scale"]]
-#     l = N_eng_idx[row["N_eng"]]
-#     m = HTR_f_idx[row["HTR_f"]]
-#     n = Vspec_idx[row["Vspec"]]
-#     o = fcs_fuselage_location_idx[row["fcs_fuselage_location"]]
-#     p = has_strut_idx[row["has_strut"]]
-    
-#     CDS_grid[h, i, j, k, l, m, n, o, p] = row["CDS"]
-#     WMTO_grid[h, i, j, k, l, m, n, o, p] = row["WMTO"]
-#     Vol_wing_grid[h, i, j, k, l, m, n, o, p] = row["Vol_wing"]
-#     PFEI_grid[h, i, j, k, l, m, n, o, p] = row["PFEI"]
-#     seats_abreast_grid[h, i, j, k, l, m, n, o, p] = row["seats_abreast"]
-#     Vol_nacelle_grid[h, i, j, k, l, m, n, o, p] = row["Vol_nacelle"]
-#     y_centroid_wing_grid[h, i, j, k, l, m, n, o, p] = row["y_centroid_wing"]
-#     L_fuse_grid[h, i, j, k, l, m, n, o, p] = row["L_fuse"]
-#     y_centroid_nacelles_grid[h, i, j, k, l, m, n, o, p] = row["y_centroid_nacelles"]
-#     span_grid[h, i, j, k, l, m, n, o, p] = row["span"]
-    
-# sys.exit()
-
-# y_centroid_wing_norm_grid = y_centroid_wing_grid / (span_grid / 2)
-# y_centroid_nacelles_norm_grid = y_centroid_nacelles_grid / (span_grid / 2)
 
 #%%
 
@@ -147,6 +78,55 @@ has_strut_ref_idx = 0
 # sys.exit()
 
 #%%
+
+# Nacelles
+mask_nacelle = df["index"].apply(lambda x: x[0] == 0)
+df_filtered_nacelle = df[mask_nacelle]
+print("df_filtered_nacelle =", df_filtered_nacelle)
+
+# Wing
+mask_wing = df["index"].apply(lambda x: x[0] == 1)
+df_filtered_wing = df[mask_wing]
+
+# Fuselage
+
+mask_fuselage = df["index"].apply(lambda x: x[0] == 2)
+df_filtered_fuselage = df[mask_fuselage]
+
+# mask_fuselage_rear = df["index"].apply(
+#     lambda x:
+#     (x[0] == 2) and
+#     # (x[2] == AR_ref_idx) and
+#     (x[2] == 8) and
+#     (x[3] == tdivc_scale_ref_idx) and
+#     (x[4] == N_eng_ref_idx) and
+#     (x[5] == HTR_f_ref_idx) and
+#     (x[8] == 1) and
+#     (x[9] == 0)
+# )
+# df_filtered_fuselage_rear = df[mask_fuselage_rear]
+
+# mask_fuselage_underfloor = df["index"].apply(
+#     lambda x:
+#     (x[0] == 2) and
+#     # (x[2] == AR_ref_idx) and
+#     (x[2] == 8) and
+#     (x[3] == tdivc_scale_ref_idx) and
+#     (x[4] == N_eng_ref_idx) and
+#     (x[5] == HTR_f_ref_idx) and
+#     (x[8] == 0) and
+#     (x[9] == 0)
+# )
+# df_filtered_fuselage_underfloor = df[mask_fuselage_underfloor]
+
+fig, ax = plt.subplots(figsize=(8, 6))
+
+ax.scatter(df_filtered_nacelle['WMTO'], df_filtered_nacelle['CDS'], zorder=100)
+ax.scatter(df_filtered_wing['WMTO'], df_filtered_wing['CDS'], zorder=100)
+ax.scatter(df_filtered_fuselage['WMTO'], df_filtered_fuselage['CDS'], zorder=100)
+
+plt.show()
+
 '''
 def closest_index_along_axis(arr, ref, axis):
     """Return the global index along `axis` of the value closest to `ref`."""
@@ -213,6 +193,8 @@ ax.scatter(WMTO_grid[2, slice(None), slice(None), slice(None), slice(None), slic
 plt.show()
 '''
 
+sys.exit()
+
 #%%
 
 
@@ -249,21 +231,6 @@ idx_baseline_fuselage_2 = (2, radius_ref_idx, AR_ref_idx, tdivc_scale_ref_idx, N
 
 # Nacelles
 
-mask_nacelle = df["index"].apply(
-    lambda x:
-    (x[0] == 0) and
-    (x[1] == radius_ref_idx) and
-    # (x[2] == AR_ref_idx) and
-    (x[2] == 8) and
-    (x[3] == tdivc_scale_ref_idx) and
-    (x[6] == l_fcs_ref_idx) and
-    (x[7] == theta_floor_ref_idx) and
-    (x[8] == 1) and
-    (x[9] == 0)
-)
-df_filtered_nacelle = df[mask_nacelle]
-print("df_filtered_nacelle =", df_filtered_nacelle)
-
 mask_HTR_f = df["index"].apply(
     lambda x:
     (x[0] == 0) and
@@ -295,18 +262,6 @@ mask_N_eng = df["index"].apply(
 df_filtered_N_eng = df[mask_N_eng]
 
 # Wing
-mask_wing = df["index"].apply(
-    lambda x:
-    (x[0] == 1) and
-    (x[1] == radius_ref_idx) and
-    (x[4] == N_eng_ref_idx) and
-    (x[5] == HTR_f_ref_idx) and
-    (x[6] == l_fcs_ref_idx) and
-    (x[7] == theta_floor_ref_idx) and
-    (x[8] == 1) and
-    (x[9] == 0)
-)
-df_filtered_wing = df[mask_wing]
 
 mask_AR = df["index"].apply(
     lambda x:
@@ -338,44 +293,6 @@ mask_tdivc_scale = df["index"].apply(
 df_filtered_tdivc_scale = df[mask_tdivc_scale]
 
 # Fuselage
-
-mask_fuselage = df["index"].apply(
-    lambda x:
-    (x[0] == 2) and
-    # (x[2] == AR_ref_idx) and
-    (x[2] == 8) and
-    (x[3] == tdivc_scale_ref_idx) and
-    (x[4] == N_eng_ref_idx) and
-    (x[5] == HTR_f_ref_idx) and
-    (x[9] == 0)
-)
-df_filtered_fuselage = df[mask_fuselage]
-
-mask_fuselage_rear = df["index"].apply(
-    lambda x:
-    (x[0] == 2) and
-    # (x[2] == AR_ref_idx) and
-    (x[2] == 8) and
-    (x[3] == tdivc_scale_ref_idx) and
-    (x[4] == N_eng_ref_idx) and
-    (x[5] == HTR_f_ref_idx) and
-    (x[8] == 1) and
-    (x[9] == 0)
-)
-df_filtered_fuselage_rear = df[mask_fuselage_rear]
-
-mask_fuselage_underfloor = df["index"].apply(
-    lambda x:
-    (x[0] == 2) and
-    # (x[2] == AR_ref_idx) and
-    (x[2] == 8) and
-    (x[3] == tdivc_scale_ref_idx) and
-    (x[4] == N_eng_ref_idx) and
-    (x[5] == HTR_f_ref_idx) and
-    (x[8] == 0) and
-    (x[9] == 0)
-)
-df_filtered_fuselage_underfloor = df[mask_fuselage_underfloor]
 
 mask_radius_0 = df["index"].apply(
     lambda x:

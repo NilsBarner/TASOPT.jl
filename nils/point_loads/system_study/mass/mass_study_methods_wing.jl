@@ -25,20 +25,19 @@ module PointLoadMethods
         sigma_fcs_nacelle = sigma_fcs / nacelle_frac
 
         # Calculate maximum propulsive power throughout mission so far
-        T_net_max_ref = maximum(ac_ref.pare[ieFe, :])
-        V_0_max_ref = maximum(ac_ref.pare[ieu0, :])
-        P_prop_max_ref = T_net_max_ref * V_0_max_ref
+        T_net_max_ref = ac_ref.pare[ieFe, :] * ac_ref.parg[igneng]  # NILS: see calculate_thrust_from_ROC!() for proof that pare[ieFe] stands for per-engine thrust
+        V_0_max_ref = ac_ref.pare[ieu0, :]
+        P_prop_max_ref = maximum(T_net_max_ref .* V_0_max_ref)
 
         # Calculate FCS weight distribution
-        neng_ref = 2
         if sigma_fcs == -1.0  # GT aircraft
-            W_fcs_nacelle_init = Weng_single_ref
-            W_fcs_init = W_fcs_nacelle_init * neng_ref
+            W_fcs_nacelle_init = Weng_single_ref  # per nacelle
+            W_fcs_init = W_fcs_nacelle_init * ac_ref.parg[igneng]  # total on aircraft
         else  # FC aircraft
-            W_fcs_nacelle_init = P_prop_max_ref / neng_ref / sigma_fcs_nacelle * 9.81  # per nacelle
+            W_fcs_nacelle_init = P_prop_max_ref / ac_ref.parg[igneng] / sigma_fcs_nacelle * 9.81  # per nacelle
             W_fcs_init = P_prop_max_ref / sigma_fcs * 9.81  # total on aircraft
         end
-        W_fcs_airframe_init = W_fcs_init - neng_ref * W_fcs_nacelle_init  # total on airframe
+        W_fcs_airframe_init = W_fcs_init - ac_ref.parg[igneng] * W_fcs_nacelle_init  # total on airframe
         W_fcs_wing_init = W_fcs_airframe_init * wing_frac / 2  # per wing half
         W_fcs_fuselage_init = W_fcs_airframe_init - 2 * W_fcs_wing_init  # total in fuselage
 
@@ -48,10 +47,10 @@ module PointLoadMethods
         toml_file_path = ""
         toml_ref_file_path = ""
         if ac_segment == "narrowbody"
-            global toml_file_path = joinpath(pwd(), "example", "a220100_lh2_input.toml")
+            global toml_file_path = joinpath(pwd(), "example", "a220100", "a220100_lh2_input.toml")
             # global toml_file_path = joinpath(pwd(), "example", "cryo_input.toml")
         elseif ac_segment == "regional"
-            global toml_file_path = joinpath(pwd(), "example", "atr72600_lh2_input.toml")
+            global toml_file_path = joinpath(pwd(), "example", "atr72600", "atr72600_lh2_input.toml")
             # error("message")
         end
         toml_data = TOML.parsefile(toml_file_path)
@@ -87,6 +86,7 @@ module PointLoadMethods
         global ac = read_aircraft_model(toml_file_path)  # global needed so updates available in outer scope
 
         # Add fuselage point load
+        ac.fuselage.point_loads = TASOPT.structures.PointLoad[TASOPT.structures.PointLoad()]
         Fz_point_fus_init = -W_fcs_fuselage_init
         if fcs_loc isa String
             _fcs_loc = fcs_loc
@@ -101,6 +101,7 @@ module PointLoadMethods
         TASOPT.structures.add_fus_point_load!(ac.fuselage, fus_load_init)
 
         # Add wing point load
+        ac.wing.point_loads = TASOPT.structures.PointLoad[TASOPT.structures.PointLoad()]
         Fz_point_wing_init = -W_fcs_wing_init
         if span_loc isa String
             _span_loc = span_loc
@@ -140,10 +141,10 @@ module PointLoadMethods
         toml_file_path = ""
         toml_ref_file_path = ""
         if ac_segment == "narrowbody"
-            global toml_ref_file_path = joinpath(pwd(), "example", "a220100_lh2_input_org.toml")
+            global toml_ref_file_path = joinpath(pwd(), "example", "a220100", "a220100_lh2_input_org.toml")
             # global toml_ref_file_path = joinpath(pwd(), "example", "cryo_input_org.toml")
         elseif ac_segment == "regional"
-            global toml_ref_file_path = joinpath(pwd(), "example", "atr72600_lh2_input_org.toml")
+            global toml_ref_file_path = joinpath(pwd(), "example",  "atr72600", "atr72600_lh2_input_org.toml")
             # error("message")
         end
         toml_data = TOML.parsefile(toml_ref_file_path)

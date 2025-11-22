@@ -1,9 +1,9 @@
 import os
 import re
 import sys
+import glob
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from cycler import cycler
 from matplotlib import gridspec
@@ -14,18 +14,12 @@ from shapely import Polygon
 
 from matplotlib_custom_settings import *
 
-#%%
+#%% Load all files of given name pattern
 
-import ast
-import os
-import glob
-import re
-import pandas as pd
-
-folder = os.getcwd()  # or any other folder path
+folder = os.path.join(os.getcwd(), 'nils', 'point_loads', 'system_study', 'mass', 'data')  # or any other folder path
 
 # Find all CSV files that start with 'combined_' and end with '_<number>.csv'
-csv_files = glob.glob(os.path.join(folder, 'point_load_study_results_131125_[1-8]*.csv'))
+csv_files = glob.glob(os.path.join(folder, 'point_load_study_results_211125_[1-8]*.csv'))
 
 # Sort numerically by the trailing number (so ..._2.csv comes before ..._10.csv)
 def extract_number(filename):
@@ -40,72 +34,239 @@ dfs = [pd.read_csv(f) for f in csv_files]
 
 print(f"Loaded {len(dfs)} matching CSV files.")
 
-#%%
+#%% Reference and baseline aircraft
 
-mask_ref = dfs[0]["nacelle_frac"].apply(lambda x: x == 1.0)
-df_ref = dfs[0][mask_ref]
+mask_bl = dfs[0]["nacelle_frac"].apply(lambda x: x == 1.0)
+df_bl = dfs[0][mask_bl]
+df_ref = pd.read_csv(os.path.join(folder, 'point_load_study_results_211125_ref.csv'))
 
-wing_frac_unique = dfs[4]["wing_frac"].unique()
+#%% Plot bands of PFEI for nacelle, wing, and fuselage
 
-mask_wingfrac_0p5 = dfs[4]["wing_frac"].apply(lambda x: x > 0.52 and x < 0.53)
-df_wingfrac_0p5 = dfs[4][mask_wingfrac_0p5]
+from paretoset import paretoset
 
-fcs_loc_unique = np.sort(dfs[4]["fcs_loc"].unique())
-span_loc_unique = np.sort(dfs[4]["span_loc"].unique())
-wing_frac_unique = np.sort(dfs[4]["wing_frac"].unique())
-
-#%%
+lw_plot = 2
+alpha_pareto = 1
+pareto_labels = ["Nacelle", "Wing", "Fuselage"]
 
 fig, ax = plt.subplots(figsize=(10,8))
 
-ax.plot(dfs[5]["sigma_fcs"].to_numpy(), dfs[5]["PFEI"].to_numpy() / df_ref["PFEI"].to_numpy(), marker='.')
-# ax.plot(dfs[6]["sigma_fcs"].to_numpy(), dfs[6]["PFEI"].to_numpy() / df_ref["PFEI"].to_numpy(), marker='.')
-# ax.plot(dfs[7]["sigma_fcs"].to_numpy(), dfs[7]["PFEI"].to_numpy() / df_ref["PFEI"].to_numpy(), marker='.')
+ax.axhline(1.0, color='k', linestyle='dashed', alpha=0.1, zorder=-100)
 
-ax.set_xlabel('FCS specific power (W/kg)', labelpad=10)
+# Custom order to have nacelle -> wing -> fuselage (see mass_study_exec_wing.jl)
+for i, df in enumerate([dfs[7], dfs[5], dfs[6]]):
+    
+    # Extract data for reusability
+    sigma_fcs = df["sigma_fcs"].to_numpy() / 1e3
+    PFEI_rel = df["PFEI"].to_numpy() / df_ref["PFEI"].to_numpy()
+    
+    # Nacelle data is a single line
+    if i == 0:
+        ax.plot(sigma_fcs, PFEI_rel, marker='.', color=colors[i], alpha=0.1)
+    else:
+        ax.scatter(sigma_fcs, PFEI_rel, marker='.', facecolor=colors[i], edgecolor='None', alpha=0.1)
+    
+    # Fill area between minima and maxima for each specific power
+    
+    # Extract minima and maxima for each specific power
+    g = df.groupby("sigma_fcs")["PFEI"].agg(["min", "max"])
+    # Convert to 1D numpy arrays
+    sigma_vals = g.index.to_numpy() / 1e3
+    PFEI_min = g["min"].to_numpy()
+    PFEI_max = g["max"].to_numpy()
+    ax.fill_between(x=sigma_vals, y1=PFEI_min / df_ref["PFEI"].to_numpy(), y2=PFEI_max / df_ref["PFEI"].to_numpy(), alpha=0.1, facecolor=colors[i], edgecolor='None', zorder=-i)
+    
+    # Plot pareto fronts
+    points_2d = np.array([
+        sigma_fcs,
+        PFEI_rel,
+    ]).T
+    pareto_front = points_2d[paretoset(points_2d, sense=["min", "min"])]
+    idx = np.argsort(pareto_front[:, 0])
+    pareto_front_sorted = pareto_front[idx]
+    ax.plot(pareto_front_sorted[:,0], pareto_front_sorted[:,1], color=colors[i], linewidth=lw_plot, alpha=alpha_pareto, label=pareto_labels[i])
+
+ax.set_xlabel('FCS specific power (kW/kg)', labelpad=10)
 ax.set_ylabel('Relative PFEI (-)', labelpad=10)
 ax.spines[['right', 'top']].set_visible(False)
 ax.tick_params(axis='y', which='both', right=False, length=0)
 ax.tick_params(axis='x', which='both', length=0)
     
+ax.legend(frameon=False, loc='upper right')
+# plt.savefig("PFEI_vs_sigma.png", format='png', dpi=600)
+# plt.savefig("PFEI_vs_sigma.svg", format='svg')
+
 plt.show()
 
-sys.exit()
+# sys.exit()
 
-#%%
+#%% Plot weight and drag for varying weight location and distribution, but fixed specific power
 
 fig, ax = plt.subplots(figsize=(10,8))
 
-ax.scatter(1, 1, zorder=10, color='k')
+# Plot lines for one-variation-at-a-time cases
+ax.scatter(df_bl["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), df_bl["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), marker='o', color='black', zorder=100)
 ax.plot(dfs[0]["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), dfs[0]["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), marker='.')
 ax.plot(dfs[1]["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), dfs[1]["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), marker='.')
 ax.plot(dfs[2]["WMTO"].to_numpy()[:-1] / df_ref["WMTO"].to_numpy(), dfs[2]["CDS"].to_numpy()[:-1] / df_ref["CDS"].to_numpy(), marker='.')
 ax.plot(dfs[3]["WMTO"].to_numpy()[:-1] / df_ref["WMTO"].to_numpy(), dfs[3]["CDS"].to_numpy()[:-1] / df_ref["CDS"].to_numpy(), marker='.')
-# ax.plot(dfs[4]["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), dfs[4]["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), marker='.', zorder=-10)
-# ax.scatter(df_wingfrac_0p5["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), df_wingfrac_0p5["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), marker='.', zorder=-10)
 
-# # ax.scatter(dfs[4]["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), dfs[4]["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), c=dfs[4]["span_loc"], marker='.', zorder=-10)
-# # ax.scatter(dfs[4]["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), dfs[4]["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), c=dfs[4]["fcs_loc"], marker='.', zorder=-10)
-# ax.scatter(dfs[4]["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), dfs[4]["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), c=dfs[4]["wing_frac"], marker='.', zorder=-10)
+# Plot grid for varying weight distribution
+
+fcs_loc_unique = np.sort(dfs[4]["fcs_loc"].unique())
+span_loc_unique = np.sort(dfs[4]["span_loc"].unique())
+wing_frac_unique = np.sort(dfs[4]["wing_frac"].unique())
 
 for fcs_loc in fcs_loc_unique:
-    mask_temp = np.isclose(df_wingfrac_0p5["fcs_loc"], fcs_loc)
-    df_temp = df_wingfrac_0p5[mask_temp]
+    mask_temp = np.isclose(dfs[4]["fcs_loc"], fcs_loc)
+    df_temp = dfs[4][mask_temp]
     
-    ax.plot(df_temp["WMTO"].to_numpy()[:-1] / df_ref["WMTO"].to_numpy(), df_temp["CDS"].to_numpy()[:-1] / df_ref["CDS"].to_numpy(), color=colors[3], alpha=0.2, zorder=-20)
+    ax.plot(df_temp["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), df_temp["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), color=colors[4], alpha=0.1, zorder=-20)
     
 for span_loc in span_loc_unique:
-    mask_temp = np.isclose(df_wingfrac_0p5["span_loc"], span_loc)
-    df_temp = df_wingfrac_0p5[mask_temp]
+    mask_temp = np.isclose(dfs[4]["span_loc"], span_loc)
+    df_temp = dfs[4][mask_temp]
     
-    ax.plot(df_temp["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), df_temp["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), color=colors[2], alpha=0.2, zorder=-20)
-    
+    ax.plot(df_temp["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), df_temp["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), color=colors[4], alpha=0.1, zorder=-20)
+
+"""
+###
+# (x, y, z) = (
+#     dfs[2]["WMTO"].to_numpy()[:-1] / df_ref["WMTO"].to_numpy(),
+#     dfs[2]["CDS"].to_numpy()[:-1] / df_ref["CDS"].to_numpy(),
+#     dfs[2]["fcs_loc"],
+# )
+(x, y, z) = (
+    dfs[2]["WMTO"].to_numpy()[:-1],
+    dfs[2]["CDS"].to_numpy()[:-1],
+    dfs[2]["fcs_loc"],
+)
+
+for xi, yi, zi in zip(x, y, z):
+    ax.text(
+        xi, yi,
+        f"{zi:.2g}",            # <-- one significant figure
+        ha='left', va='top'  # tweak as desired
+    )
+
+# (x, y, z) = (
+#     dfs[3]["WMTO"].to_numpy()[:-1] / df_ref["WMTO"].to_numpy(),
+#     dfs[3]["CDS"].to_numpy()[:-1] / df_ref["CDS"].to_numpy(),
+#     dfs[3]["span_loc"],
+# )
+(x, y, z) = (
+    dfs[3]["WMTO"].to_numpy()[:-1],
+    dfs[3]["CDS"].to_numpy()[:-1],
+    dfs[3]["span_loc"],
+)
+
+for xi, yi, zi in zip(x, y, z):
+    ax.text(
+        xi, yi,
+        f"{zi:.2g}",            # <-- one significant figure
+        ha='left', va='top'  # tweak as desired
+    )
+###
+"""
+
 ax.set_xlabel('Relative weight (-)', labelpad=10)
 ax.set_ylabel('Relative drag (-)', labelpad=10)
 ax.spines[['right', 'top']].set_visible(False)
 ax.tick_params(axis='y', which='both', right=False, length=0)
 ax.tick_params(axis='x', which='both', length=0)
+
+legend_handles = [
+    Line2D([0], [0], linewidth=0.0, color='k', linestyle='solid', marker='o', alpha=1.0, label=r'Baseline'),
+    Line2D([0], [0], color=colors[0], linestyle='solid', marker='.', alpha=1.0, label=r'Nacelle $\rightarrow$ fuselage'),
+    Line2D([0], [0], color=colors[1], linestyle='solid', marker='.', alpha=1.0, label=r'Nacelle $\rightarrow$ wing'),
+    Line2D([0], [0], color=colors[2], linestyle='solid', marker='.', alpha=1.0, label='Along fuselage'),
+    Line2D([0], [0], color=colors[3], linestyle='solid', marker='.', alpha=1.0, label='Along wing'),
+    Patch(facecolor='none', edgecolor=colors[4], alpha=0.1, label='Along wing and fuselage (50\% each)'),
+]
+legend = fig.legend(
+    handles=legend_handles,
+    loc='upper left',
+    bbox_to_anchor=(0.13, 1),
+    bbox_transform=fig.transFigure,
+    frameon=False,
+)
+fig.add_artist(legend)
     
+# plt.savefig("weight_vs_drag_mass_study_1to5.png", format='png', dpi=600)
+# plt.savefig("weight_vs_drag_mass_study_1to5.svg", format='svg')
+plt.show()
+
+# sys.exit()
+
+#%% Plot weight and drag for varying weight location and specific power
+
+fig, ax = plt.subplots(figsize=(10,8))
+    
+# Plot line for nacelle
+ax.scatter(df_bl["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), df_bl["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), marker='o', color='black', zorder=100)
+# ax.scatter(dfs[5]["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), dfs[5]["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), marker='.')
+# ax.scatter(dfs[6]["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), dfs[6]["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), marker='.')
+ax.plot(dfs[7]["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), dfs[7]["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), marker='.', color=colors[0])
+
+# Plot grids for wing and fuselage
+
+span_loc_unique = np.sort(dfs[5]["span_loc"].unique())
+sigma_fcs_unique = np.sort(dfs[5]["sigma_fcs"].unique())
+
+for span_loc in span_loc_unique:
+    mask_temp = np.isclose(dfs[5]["span_loc"], span_loc)
+    df_temp = dfs[5][mask_temp]
+    
+    ax.plot(df_temp["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), df_temp["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), color=colors[1], alpha=0.5, zorder=-10)
+    
+for sigma_fcs in sigma_fcs_unique:
+    mask_temp = np.isclose(dfs[5]["sigma_fcs"], sigma_fcs)
+    df_temp = dfs[5][mask_temp]
+    
+    ax.plot(df_temp["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), df_temp["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), color=colors[1], alpha=0.5, zorder=-10)
+    
+
+fcs_loc_unique = np.sort(dfs[6]["fcs_loc"].unique())
+sigma_fcs_unique = np.sort(dfs[6]["sigma_fcs"].unique())
+    
+for fcs_loc in fcs_loc_unique:
+    mask_temp = np.isclose(dfs[6]["fcs_loc"], fcs_loc)
+    df_temp = dfs[6][mask_temp]
+    
+    ax.plot(df_temp["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), df_temp["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), color=colors[2], alpha=0.5, zorder=-20)
+    
+for sigma_fcs in sigma_fcs_unique:
+    mask_temp = np.isclose(dfs[6]["sigma_fcs"], sigma_fcs)
+    df_temp = dfs[6][mask_temp]
+    
+    ax.plot(df_temp["WMTO"].to_numpy() / df_ref["WMTO"].to_numpy(), df_temp["CDS"].to_numpy() / df_ref["CDS"].to_numpy(), color=colors[2], alpha=0.5, zorder=-20)
+
+
+ax.set_xlabel('Relative weight (-)', labelpad=10)
+ax.set_ylabel('Relative drag (-)', labelpad=10)
+ax.spines[['right', 'top']].set_visible(False)
+ax.tick_params(axis='y', which='both', right=False, length=0)
+ax.tick_params(axis='x', which='both', length=0)
+
+legend_handles = [
+    Line2D([0], [0], linewidth=0.0, color='k', linestyle='solid', marker='o', alpha=1.0, label=r'Baseline'),
+    Line2D([0], [0], color=colors[0], linestyle='solid', marker='.', alpha=1.0, label=r'Nacelle'),
+    # Line2D([0], [0], color=colors[1], linestyle='solid', marker='.', alpha=1.0, label=r'Wing'),
+    # Line2D([0], [0], color=colors[2], linestyle='solid', marker='.', alpha=1.0, label='Fuselage'),
+    # Line2D([0], [0], color=colors[3], linestyle='solid', marker='.', alpha=1.0, label='Along wing'),
+    Patch(facecolor='none', edgecolor=colors[1], alpha=0.5, label='Wing'),
+    Patch(facecolor='none', edgecolor=colors[2], alpha=0.5, label='Fuselage'),
+]
+legend = fig.legend(
+    handles=legend_handles,
+    loc='upper left',
+    bbox_to_anchor=(0.13, 1),
+    bbox_transform=fig.transFigure,
+    frameon=False,
+)
+fig.add_artist(legend)
+    
+# plt.savefig("weight_vs_drag_mass_study_6to8.png", format='png', dpi=600)
+# plt.savefig("weight_vs_drag_mass_study_6to8.svg", format='svg')
 plt.show()
 
 sys.exit()

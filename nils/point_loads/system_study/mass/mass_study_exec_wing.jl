@@ -19,10 +19,10 @@ using CSV
 using TASOPT
 include(TASOPT.__TASOPTindices__)
 
-include(joinpath(pwd(), "nils/point_loads/point_load_plots.jl"))
+include(joinpath(pwd(), "nils", "point_loads", "point_load_plots.jl"))
 using .PointLoadPlots
 
-include(joinpath(pwd(), "nils/point_loads/system_study/mass/point_load_study_methods_spanfrac.jl"))
+include(joinpath(pwd(), "nils", "point_loads", "system_study", "mass", "mass_study_methods_wing.jl"))
 using .PointLoadMethods
 
 ###
@@ -36,36 +36,58 @@ N_points = 20
 # Model reference aircraft
 ac_ref, Weng_single_ref = PointLoadMethods.analyse_reference_aircraft(ac_segment)
 # ac_ref, Weng_single_ref = nothing, nothing
+
+# Calculate maximum propulsive power throughout mission
+T_net_max_ref = ac_ref.pare[ieFe, :] * ac_ref.parg[igneng]  # NILS: see calculate_thrust_from_ROC!() for proof that pare[ieFe] stands for per-engine thrust
+V_0_max_ref = ac_ref.pare[ieu0, :]
+P_prop_max_ref = maximum(T_net_max_ref .* V_0_max_ref)
+
+df = DataFrame(
+    CDS = ac_ref.wing.layout.S * ac_ref.para[iaCD, ipcruise1],
+    WMTO = ac_ref.parg[igWMTO],
+    Vol_wing = 2*(ac_ref.wing.center.volume + ac_ref.wing.inboard.volume + ac_ref.wing.outboard.volume),
+    PFEI = ac_ref.parm[imPFEI],
+    seats_abreast = ac_ref.fuselage.cabin.seats_abreast_main,
+    Vol_nacelle = ac_ref.nils.V_fcs_nacelle,
+    L_fuse = ac_ref.fuselage.layout.l_cabin_cylinder,
+    span = ac_ref.wing.layout.span,
+    Vol_fuse = ac_ref.nils.V_fcs_fuselage,
+    length = ac_ref.fuselage.layout.x_end,
+    P_prop_max = P_prop_max_ref,
+
+    # root_span = root_span_vec,
+    # dfan = dfan_vec,
+
+    Wfuse = ac_ref.fuselage.weight,
+    Wwing = ac_ref.wing.weight,
+    Whtail = ac_ref.htail.weight,
+    Wvtail = ac_ref.vtail.weight,
+    Wfuseshell = ac_ref.fuselage.shell.weight.W,
+    Wfusebendv = ac_ref.fuselage.bendingmaterial_v.weight.W,
+    Wfusebendh = ac_ref.fuselage.bendingmaterial_h.weight.W,
+    Wwingcentre = ac_ref.wing.center.weight,
+    Wwinginboard = ac_ref.wing.inboard.weight,
+    Wwingoutboard = ac_ref.wing.outboard.weight,
+
+    CLS = ac_ref.wing.layout.S * ac_ref.para[iaCL, ipcruise1],
+    CDfuseS = ac_ref.wing.layout.S * ac_ref.para[iaCDfuse, ipcruise1],
+    CDiS = ac_ref.wing.layout.S * ac_ref.para[iaCDi, ipcruise1],
+    CDwingS = ac_ref.wing.layout.S * ac_ref.para[iaCDwing, ipcruise1],
+    CDhtailS = ac_ref.wing.layout.S * ac_ref.para[iaCDhtail, ipcruise1],
+    CDvtailS = ac_ref.wing.layout.S * ac_ref.para[iaCDvtail, ipcruise1],
+
+    # eta_grav_tank = etagravtank_vec,
+)
+
+CSV.write(joinpath(pwd(), "nils", "point_loads", "system_study", "mass", "data", "point_load_study_results_211125_ref.csv"), df)
 # error("stop here for debugging")  # NILS
 
-###
-"""
-# sigma_fcs_range = range(2e3, stop=4e3, length=N_points)
-# sigma_fcs_range = [-1.0]
-sigma_fcs_range = [4e3]
-
-panel_break_location = 0.35
-span_loc_ref = panel_break_location
-span_loc_range = collect(range(0.1, stop=1.0, length=N_points))
-span_loc_range = sort(unique(vcat(Float64.(span_loc_range), Float64(span_loc_ref))))
-# span_loc_range = [span_loc_ref]
-
-# fcs_loc_range = range(0.0, stop=1.0, length=N_points)
-fcs_loc_range = [1.0]
-
-# wing_frac_range = range(0.0, stop=1.0, length=N_points)
-wing_frac_range = [1.0]
-
-nacelle_frac_range = [1.0]
-# nacelle_frac_range = range(0.0, stop=1.0, length=N_points)
-"""
 ###
 
 function run_study(study_idx::Int)
 
-    ###
-
     # result vectors
+    study_idx_vec = Int[]
     index_vec = Vector{NTuple{5,Int}}()
     sigma_fcs_vec = Float64[]
     span_loc_vec = Any[]
@@ -97,7 +119,6 @@ function run_study(study_idx::Int)
     Wwingoutboard_vec = Float64[]
 
     CLS_vec = Float64[]
-    # CDS_vec = Float64[]
     CDfuseS_vec = Float64[]
     CDiS_vec = Float64[]
     CDwingS_vec = Float64[]
@@ -105,59 +126,57 @@ function run_study(study_idx::Int)
     CDvtailS_vec = Float64[]
 
     if study_idx == 1
+        # sigma_fcs_range = [3.25e3]
         sigma_fcs_range = [4e3]
         span_loc_range = [-1.0]
-        fcs_loc_range = ["eng"]  # [-2.0]
+        fcs_loc_range = ["eng"]
         wing_frac_range = [0.0]
         nacelle_frac_range = range(0.2, stop=1.0, length=N_points)
-        # nacelle_frac_range = [0.5]
     elseif study_idx == 2
+        # sigma_fcs_range = [3.25e3]
         sigma_fcs_range = [4e3]
-        span_loc_range = ["eng"]  # [-2.0]
+        span_loc_range = ["eng"]
         fcs_loc_range = [-1.0]
         wing_frac_range = [1.0]
         nacelle_frac_range = range(0.2, stop=1.0, length=N_points)
-        # nacelle_frac_range = [0.5]
     elseif study_idx == 3
+        # sigma_fcs_range = [3.25e3]
         sigma_fcs_range = [4e3]
         span_loc_range = [-1.0]
-        fcs_loc_range = range(0.0, stop=1.0, length=N_points)
-        # fcs_loc_range = [0.5]
+        fcs_loc_range = range(0.01, stop=0.99, length=N_points)
         wing_frac_range = [0.0]
-        nacelle_frac_range = [0.1]
+        nacelle_frac_range = [0.2]
     elseif study_idx == 4
+        # sigma_fcs_range = [3.25e3]
         sigma_fcs_range = [4e3]
-        span_loc_range = range(0.0, stop=1.0, length=N_points)
-        # span_loc_range = [0.5]
+        span_loc_range = range(0.01, stop=0.99, length=N_points)
         fcs_loc_range = [-1.0]
         wing_frac_range = [1.0]
-        nacelle_frac_range = [0.1]
+        nacelle_frac_range = [0.2]
     elseif study_idx == 5
         sigma_fcs_range = [4e3]
-        span_loc_range = range(0.0, stop=1.0, length=N_points)
-        # span_loc_range = [0.5]
-        fcs_loc_range = range(0.0, stop=1.0, length=N_points)
-        # fcs_loc_range = [0.5]
-        wing_frac_range = range(0.0, stop=1.0, length=N_points)
-        # wing_frac_range = [0.5]
-        nacelle_frac_range = [0.1]
+        span_loc_range = range(0.01, stop=0.99, length=N_points)
+        fcs_loc_range = range(0.01, stop=0.99, length=N_points)
+        # wing_frac_range = range(0.01, stop=0.99, length=N_points)
+        wing_frac_range = [0.5]
+        nacelle_frac_range = [0.2]
     elseif study_idx == 6
         sigma_fcs_range = range(1.5e3, stop=4e3, length=N_points)
-        span_loc_range = range(0.0, stop=1.0, length=N_points)
+        span_loc_range = range(0.01, stop=0.99, length=N_points)
         fcs_loc_range = [-1.0]
         wing_frac_range = [1.0]
-        nacelle_frac_range = [0.1]
+        nacelle_frac_range = [0.2]
     elseif study_idx == 7
         sigma_fcs_range = range(1.5e3, stop=4e3, length=N_points)
         span_loc_range = [-1.0]
-        fcs_loc_range = range(0.0, stop=1.0, length=N_points)
+        fcs_loc_range = range(0.01, stop=0.99, length=N_points)
         wing_frac_range = [0.0]
-        nacelle_frac_range = [0.1]
+        nacelle_frac_range = [0.2]
     elseif study_idx == 8
         sigma_fcs_range = range(1.5e3, stop=4e3, length=N_points)
         span_loc_range = [-1.0]
         fcs_loc_range = [-1.0]
-        wing_frac_range = [1.0]
+        wing_frac_range = [-1.0]
         nacelle_frac_range = [1.0]
     end
 
@@ -205,11 +224,12 @@ function run_study(study_idx::Int)
                             # Wpointload_nacelle_grid[i, j, k, l] = Wpointload_nacelle
 
                             # Calculate maximum propulsive power throughout mission
-                            T_net_max = maximum(ac.pare[ieFe, :])
-                            V_0_max = maximum(ac.pare[ieu0, :])
-                            P_prop_max = T_net_max * V_0_max
+                            T_net_max = ac.pare[ieFe, :] * ac.parg[igneng]  # NILS: see calculate_thrust_from_ROC!() for proof that pare[ieFe] stands for per-engine thrust
+                            V_0_max = ac.pare[ieu0, :]
+                            P_prop_max = maximum(T_net_max .* V_0_max)
 
                             # save results immediately
+                            push!(study_idx_vec, study_idx)
                             push!(index_vec, (i,j,k,l,m))
                             push!(sigma_fcs_vec, sigma_fcs)
                             push!(span_loc_vec, span_loc)
@@ -229,7 +249,6 @@ function run_study(study_idx::Int)
                             push!(length_vec, ac.fuselage.layout.x_end)
                             push!(P_prop_max_vec, P_prop_max)
 
-                            # push!(Wto_vec, ac.parg[igWMTO])
                             push!(Wfuse_vec, ac.fuselage.weight)
                             push!(Wwing_vec, ac.wing.weight)
                             push!(Whtail_vec, ac.htail.weight)
@@ -242,7 +261,6 @@ function run_study(study_idx::Int)
                             push!(Wwingoutboard_vec, ac.wing.outboard.weight)
 
                             push!(CLS_vec, ac.wing.layout.S * ac.para[iaCL, ipcruise1])
-                            # push!(CDS_vec, ac.wing.layout.S * ac.para[iaCD, ipcruise1])
                             push!(CDfuseS_vec, ac.wing.layout.S * ac.para[iaCDfuse, ipcruise1])
                             push!(CDiS_vec, ac.wing.layout.S * ac.para[iaCDi, ipcruise1])
                             push!(CDwingS_vec, ac.wing.layout.S * ac.para[iaCDwing, ipcruise1])
@@ -265,6 +283,7 @@ function run_study(study_idx::Int)
     end
 
     df = DataFrame(
+        study_idx = study_idx_vec,
         index = index_vec,
         sigma_fcs = sigma_fcs_vec,
         span_loc = span_loc_vec,
@@ -287,7 +306,6 @@ function run_study(study_idx::Int)
         # root_span = root_span_vec,
         # dfan = dfan_vec,
 
-        # Wto = ac_ref.parg[igWMTO]
         Wfuse = Wfuse_vec,
         Wwing = Wwing_vec,
         Whtail = Whtail_vec,
@@ -300,7 +318,6 @@ function run_study(study_idx::Int)
         Wwingoutboard = Wwingoutboard_vec,
 
         CLS = CLS_vec,
-        # CDS = CDS_vec,
         CDfuseS = CDfuseS_vec,
         CDiS = CDiS_vec,
         CDwingS = CDwingS_vec,
@@ -310,12 +327,11 @@ function run_study(study_idx::Int)
         # eta_grav_tank = etagravtank_vec,
     )
 
-    CSV.write("point_load_study_results_131125_$(study_idx).csv", df)
+    CSV.write(joinpath(pwd(), "nils", "point_loads", "system_study", "mass", "data", "point_load_study_results_211125_$(study_idx).csv"), df)
 
 end
 
-# for study_idx in 1:5
-for study_idx in 6:8
+for study_idx in 1:8
     run_study(study_idx)
 end
 

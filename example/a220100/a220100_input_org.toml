@@ -157,7 +157,6 @@
     x_pressure_shell_aft = "27.10135336310732 m" # MOVED 4 m AFT from 23.10135336310732 m NILS (measured from page 76 - pdf - of A220-ACP-Issue011-00-18Sep2025)
     x_cone_end           = "31.851999999999997 m" # NILS (subtracted 10 ft from below)
     x_end                = "34.9 m" # NILS (measured from page 76 - pdf - of A220-ACP-Issue011-00-18Sep2025)
-    theta_floor = 0.0
     unit_load_device = "BulkA220100" #Cargo container for double decker sizing NILS (A220-100 uses bulk cargo, so no LD type - https://www.uldcare.com/uld-tools-and-solutions/uld-types/, see also pages 88-93 - pdf - of A220-ACP-Issue011-00-18Sep2025)
     
 # Power systems and landing gear locations
@@ -233,8 +232,6 @@
 
     # Airfoil data (Should be stored in src/airfoil_data/)
     airfoil = "C.air" # NILS: keep this airfoil family for now, although the "Cl.air" family (see src/airfoil_data/README) may be more suitable for non-transonic wings
-    TR_scale = 1.0
-    tdivc_scale = 1.0
 
 [Wing.Aero]
     fuselage_lift_carryover_loss_factor = -0.3
@@ -531,4 +528,21 @@
 #Default model does not have heat exchangers in the propulsion system
 #See cryo_input.toml for template with representative values
 #Retained for compatibility as a default with HX designs
-[Propulsion.HeatExchangers] 
+[Propulsion.HeatExchangers]
+
+[Nils]
+    theta_floor = 0.0
+    engine_point_load = 0.0
+    TR_scale = 1.0
+    tdivc_scale = 1.0
+    V_fcs_nacelle = 0.0
+    sigma_fcs_nacelle = -1.0
+    sigma_fcs = -1.0
+    wing_frac = 0.0
+    nacelle_frac = 1.0
+    fcs_loc = 0.0
+    span_loc = 0.0
+    V_fcs_fuselage = 0.0
+    l_fcs_fuselage = 0.0
+    fcs_fuselage_location = 1.0
+    V_fcs_wing = 0.0

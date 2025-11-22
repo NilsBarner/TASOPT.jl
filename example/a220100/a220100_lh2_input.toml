@@ -55,7 +55,6 @@ cabin_pressure_altitude = "8000.0 ft"
     floor_depth = "6.0 in"
     x_pressure_shell_fwd = "4.858636712229891 m"
     x_end_cylinder = "25.27255336310732 m"
-    theta_floor = 0.0
     x_nose_tip = "0 ft"
     floor_distance = "0 in"
 
@@ -94,7 +93,6 @@ engine_location = "wing"
 prop_sys_arch = "TF"
 
 [Wing]
-TR_scale = 1.0
 spar_box_x_c = 0.4
 x_wing_box = "14.391138098766227 m"
 airfoil = "C.air"
@@ -102,7 +100,6 @@ maxSpan = "36 m"
 hweb_to_hbox = 0.75
 strut_local_velocity_ratio = 1.0
 outer_panel_taper_ratio = 0.2
-tdivc_scale = 1.0
 sweep = 25.0
 z_strut = 0.0
 panel_break_location = 0.35
@@ -255,14 +252,6 @@ number_of_engines = 2
     nacelle_pylon_wetted_area_ratio = 16.0
     nacelle_local_velocity_ratio = 1.02
 
-    [Propulsion.Combustor]
-    combustion_efficiency = 0.985
-
-    [Propulsion.Weight]
-    pylon_weight_fraction = 0.1
-    engine_access_weight_fraction = 0.1
-    weight_model = "fitzgerald_basic"
-
     [Propulsion.Turbomachinery]
     M2 = 0.6
     HTR_fan = 0.3
@@ -286,6 +275,14 @@ number_of_engines = 2
     low_spool_loss = 0.01
     fan_nozzle_PR = 0.98
 
+    [Propulsion.Weight]
+    pylon_weight_fraction = 0.1
+    engine_access_weight_fraction = 0.1
+    weight_model = "fitzgerald_basic"
+
+    [Propulsion.Combustor]
+    combustion_efficiency = 0.985
+
     [Propulsion.Offtakes]
     Tt_offtake_air = 300.0
     Low_spool_power_offtake_per_pax = 200.0
@@ -295,22 +292,22 @@ number_of_engines = 2
     Pt_offtake_air = 30000.0
 
     [Propulsion.Nozzles.core_nozzle_area]
-    descentend = 1.0
+    descentstart = 1.0
     rotation = 1.0
     static = 1.0
     cutback = 1.0
     climbstart = 1.0
     climbend = 1.0
-    descentstart = 1.0
+    descentend = 1.0
 
     [Propulsion.Nozzles.fan_nozzle_area]
-    descentend = 1.0
+    descentstart = 1.0
     rotation = 1.0
     static = 1.0
     cutback = 1.0
     climbstart = 1.0
     climbend = 1.0
-    descentstart = 1.0
+    descentend = 1.0
 
     [Propulsion.HeatExchangers]
     intercooler_inlet_mach = 0.1
@@ -353,7 +350,7 @@ nacelle_frac = 1.0
 V_fcs_fuselage = 0.0
 engine_point_load = 0.0
 sigma_fcs_nacelle = 4000.0
-wing_frac = 1.0
+wing_frac = -1.0
 span_loc = -1.0
 theta_floor = 0.0
 fcs_fuselage_location = 1.0
@@ -379,8 +376,8 @@ Re_ref = 1.0e7
     AR_Htail = 4.13360655737705
     sweep = 32.41230661835118
     opt_sizing = "CLmax_fwdCG"
-    x_Htail = "29.200000000000003 m"
     SM_min = 0.15
+    x_Htail = "29.200000000000003 m"
     box_width_to_chord = 0.5
     added_weight_fraction = 0.3
     Vh = 1.3
